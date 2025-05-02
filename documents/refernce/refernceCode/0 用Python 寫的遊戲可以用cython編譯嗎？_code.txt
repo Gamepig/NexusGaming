@@ -1,0 +1,32 @@
+# 安裝 Cython
+# pip install cython
+
+# 準備程式碼 (game.pyx)
+def update_position(int x, int y, float speed):
+    cdef int new_x = x + <int>(speed * 10)
+    return new_x, y
+
+# 撰寫 setup.py
+from setuptools import setup
+from Cython.Build import cythonize
+
+setup(
+    ext_modules=cythonize("game.pyx")
+)
+
+# 編譯
+# python setup.py build_ext --inplace
+
+# 在遊戲中使用
+import game
+game.update_position(100, 200, 5.0)
+
+# 範例：簡單遊戲迴圈 (game.py)
+# import pygame # 假設使用 Pygame
+# def move_player(x, y, speed):
+#    return x + speed * 10, y
+
+# 轉為 Cython (game.pyx)
+# def move_player(int x, int y, float speed):
+#    cdef int new_x = x + <int>(speed * 10)
+#    return new_x, y 

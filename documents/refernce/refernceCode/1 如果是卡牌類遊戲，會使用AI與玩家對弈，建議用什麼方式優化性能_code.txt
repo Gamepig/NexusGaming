@@ -1,0 +1,112 @@
+# ai.pyx - 靜態型別宣告
+cdef struct GameState:
+    int player_hp
+    int opponent_hp
+    int deck_size
+
+cdef double evaluate_state(GameState state):
+    return <double>(state.player_hp - state.opponent_hp) / state.deck_size
+
+# ai.pyx - 陣列優化 (NumPy)
+# import numpy as np
+# cimport numpy as cnp
+# cdef void update_deck(cnp.ndarray[cnp.int_t, ndim=1] deck, int card_id):
+#     deck[card_id] -= 1
+
+# mcts.pyx - MCTS 範例
+# from libc.stdlib cimport rand
+# cimport cython
+# @cython.boundscheck(False)
+# @cython.wraparound(False)
+# cdef int simulate_game(GameState state, int max_iterations):
+#     cdef int i, score = 0
+#     for i in range(max_iterations):
+#         score += rand() % 2  # 模擬隨機遊戲結果
+#     return score
+
+# minimax.pyx - Minimax 範例
+# cimport cython
+# @cython.cdivision(True)
+# cdef double minimax(GameState state, int depth, bint maximizing):
+#     if depth == 0:
+#         return evaluate_state(state)
+#     cdef double best_value = -1e9 if maximizing else 1e9
+#     # 模擬行動
+#     return best_value
+
+# setup.py - 編譯
+# from setuptools import setup
+# from Cython.Build import cythonize
+# import numpy
+# setup(
+#     ext_modules=cythonize("ai.pyx", annotate=True),
+#     include_dirs=[numpy.get_include()]
+# )
+# # 執行: python setup.py build_ext --inplace
+
+# main.py - 整合
+# import pygame
+# import ai
+# state = {"player_hp": 30, "opponent_hp": 30, "deck_size": 20}
+# score = ai.evaluate_state(state)
+
+# main.py - Pygame 整合
+# import pygame
+# import ai # Cython 模組
+# while True:
+#     for event in pygame.event.get():
+#         if event.type == PLAYER_TURN:
+#             move = ai.compute_best_move(game_state, max_depth=3)
+#             apply_move(move)
+
+# mcts.pyx - 多執行緒 (nogil + OpenMP)
+# from cython.parallel import prange
+# @cython.boundscheck(False)
+# cdef int parallel_mcts(GameState state, int max_iterations) nogil:
+#     cdef int i, score = 0
+#     for i in prange(max_iterations, nogil=True):
+#         score += simulate_game(state)
+#     return score
+
+# ai.pyx - C++ 整合
+# cdef extern from "mcts.h":
+#     int run_mcts(GameState state, int iterations)
+
+# ai.pyx - 快取/記憶化
+# from libc.stdlib cimport malloc, free
+# cdef struct Cache:
+#     long state_hash
+#     double value
+# cdef Cache* cache = <Cache*>malloc(10000 * sizeof(Cache))
+
+# mcts.pyx - 簡化 MCTS 實現
+# cimport cython
+# from libc.stdlib cimport rand
+# cdef struct GameState:
+#     int player_hp
+#     int opponent_hp
+#     int deck_size
+# @cython.boundscheck(False)
+# cdef double evaluate_state(GameState state):
+#     return <double>(state.player_hp - state.opponent_hp) / state.deck_size
+# @cython.cdivision(True)
+# def compute_best_move(GameState state, int max_iterations):
+#     cdef int i, best_move = 0
+#     cdef double best_score = -1e9
+#     for i in range(max_iterations):
+#         score = evaluate_state(state) # 簡化：應是模擬後的分數
+#         if score > best_score:
+#             best_score = score
+#             best_move = i # 簡化：應是模擬的起始動作
+#     return best_move
+
+# main.py - 使用簡化 MCTS
+# import pygame
+# import mcts
+# pygame.init()
+# game_state = {"player_hp": 30, "opponent_hp": 30, "deck_size": 20}
+# while True:
+#     for event in pygame.event.get():
+#         if event.type == AI_TURN:
+#             move = mcts.compute_best_move(game_state, 1000)
+#             print(f"AI chooses move {move}") 

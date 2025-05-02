@@ -1,0 +1,103 @@
+# --- DB 設計 ---
+# CREATE TABLE ai_anomaly_predictions (
+#   ... player_id, is_anomaly BOOLEAN, prediction_time, features JSON ...
+# );
+
+# --- Golang 後端 ---
+
+# // 特徵提取
+# func extractPlayerFeatures(start, end string) ([]PlayerFeature, error) {
+#   /* ... Raw SQL to aggregate game_logs and calculate features ... */
+# }
+
+# // API: 提供特徵數據給 AI
+# r.GET("/admin/ai/player_features", func(c *gin.Context) {
+#   features, _ := extractPlayerFeatures(start, end)
+#   c.JSON(200, features)
+# })
+
+# // 調用 Python AI 推理服務 (REST)
+# func callAIPrediction(features []PlayerFeature) ([]bool, error) {
+#   /* ... POST request to Python service (e.g., FastAPI) ... */
+#   /* ... Decode response JSON ... */
+# }
+
+# // API: 執行異常檢測
+# r.GET("/admin/ai/detect_anomalies", func(c *gin.Context) {
+#   features, _ := extractPlayerFeatures(start, end)
+#   anomalies, _ := callAIPrediction(features)
+#   saveAIPredictions(features, anomalies) // Save results to DB
+#   /* ... Format and return results ... */
+# })
+
+# // 儲存 AI 預測結果
+# func saveAIPredictions(features []PlayerFeature, anomalies []bool) {
+#   for i, f := range features {
+#     featureJSON, _ := json.Marshal(f)
+#     db.Create(&AIAnomalyPrediction{ /* ... data ... */ })
+#   }
+# }
+
+# // 增量更新推理
+# func incrementalAIPrediction(lastRun time.Time) {
+#   /* ... Extract features for the new period ... */
+#   /* ... Call AI prediction ... */
+#   /* ... Save new predictions ... */
+# }
+
+# // 定時任務 (Cron)
+# func startCronJobs() {
+#   c := cron.New()
+#   c.AddFunc("0 0 * * *", func() { /* ... call incrementalAIPrediction ... */ })
+#   c.Start()
+# }
+
+# // Redis 快取特徵數據
+# func cachePlayerFeatures(ctx context.Context, features []PlayerFeature) {
+#   /* ... Cache features JSON in Redis ... */
+# }
+
+# // Prometheus 監控 AI 推理時間
+# func prometheusMiddleware() gin.HandlerFunc {
+#   /* ... Middleware to record histogram metric for AI API paths ... */
+# }
+
+# --- Python AI 服務 (FastAPI 範例) ---
+
+# from fastapi import FastAPI
+# import joblib
+# import pandas as pd
+
+# app = FastAPI()
+# model = joblib.load("isolation_forest.pkl") # Load trained model
+
+# @app.post("/predict_anomaly")
+# async def predict_anomaly(data: dict):
+#   df = pd.DataFrame(data["features"]) # Assuming features sent as list of dicts
+#   # Preprocess df if necessary (e.g., handle missing values, scale)
+#   predictions = model.predict(df)
+#   # Convert predictions (-1 for anomaly, 1 for normal) to boolean
+#   anomalies = (predictions == -1).tolist()
+#   return {"anomalies": anomalies}
+
+# --- 前端整合 (Next.js) ---
+
+# // AI 異常檢測結果頁面
+# // pages/admin/ai-anomalies.tsx
+# function AIAnomalies() {
+#   /* ... Fetch anomaly predictions from Golang API (/admin/ai/detect_anomalies) ... */
+#   /* ... Render table showing player ID and is_anomaly ... */
+#   /* ... Optionally render AnomalyScatter component ... */
+# }
+
+# // 異常玩家特徵散點圖
+# // components/AnomalyScatter.tsx
+# import { Scatter } from 'react-chartjs-2';
+# function AnomalyScatter({ anomalies }) {
+#   // Prepare data for Scatter plot, color-coding anomalies
+#   const datasets = [
+#     { label: 'Normal', data: anomalies.filter(a => !a.is_anomaly).map(a => ({ x: a.features.bet_count, y: a.features.win_rate * 100 })), /* ... */ },
+#     { label: 'Anomaly', data: anomalies.filter(a => a.is_anomaly).map(a => ({ x: a.features.bet_count, y: a.features.win_rate * 100 })), /* ... */ }
+#   ];
+#   return <Scatter data={{ datasets }} /* ... options ... */ />;
+# } 

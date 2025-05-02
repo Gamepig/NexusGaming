@@ -1,0 +1,624 @@
+遊戲端大約是這樣。使用three.js + Golang 
+現在來規劃後台；後台功能需求
+1.玩家點數統計
+2.代理商、經銷商分潤與損失(帳目)
+3.遊戲控管
+
+
+感謝你的詳細需求說明！你希望為手機網頁撲克類遊戲（使用 **Three.js + Next.js** 前端，**Golang** 後端，支援全螢幕，涵蓋德州撲克、傳統梭哈、百家樂等變體）規劃後台，功能需求包括：
+
+1. **玩家點數統計**：追蹤玩家在遊戲中的點數（例如籌碼、積分）數據。
+2. **代理商、經銷商分潤與損失（帳目）**：管理代理商和經銷商的收益分成、損失記錄及財務報表。
+3. **遊戲控管**：監控和管理遊戲運行，包括遊戲設置、風險控制和異常檢測。
+
+考慮到你的技術棧（Three.js + Next.js 前端，Golang 後端），以及你對 AI 性能優化（例如撲克 AI 的 MCTS）和交易分析（概率計算、風險評估）的興趣，我將設計一個基於 Golang 的後台系統，詳細規劃功能實現、技術架構、資料庫設計和效能優化，確保與遊戲端無縫整合，並支援手機網頁環境。後台將採用高效、可擴展的設計，滿足商業化需求。
+
+### 後台功能需求與實現規劃
+
+#### 1. 玩家點數統計
+- **功能需求**：
+  - 記錄每位玩家的點數（籌碼、積分）餘額、歷史交易（充值、消費、贏得、損失）。
+  - 提供玩家點數查詢（按時間、遊戲類型篩選）。
+  - 支援排行榜（例如最高籌碼玩家）。
+  - 防止點數異常（例如作弊或系統錯誤）。
+- **技術實現**：
+  - **資料庫設計**：
+    - 表格：`players`
+      ```sql
+      CREATE TABLE players (
+          id BIGINT PRIMARY KEY,
+          username VARCHAR(50) UNIQUE,
+          balance DECIMAL(15, 2) DEFAULT 0.0, -- 當前點數餘額
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      ```
+    - 表格：`point_transactions`
+      ```sql
+      CREATE TABLE point_transactions (
+          id BIGINT PRIMARY KEY AUTO_INCREMENT,
+          player_id BIGINT,
+          game_type VARCHAR(20), -- texas, stud, baccarat
+          amount DECIMAL(15, 2), -- 正數為收入，負數為支出
+          type ENUM('win', 'loss', 'deposit', 'withdraw') NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (player_id) REFERENCES players(id)
+      );
+      ```
+  - **Golang 後端**：
+    - 使用 **Gin** 框架提供 REST API，處理點數查詢和更新。
+    - 示例 API：
+      ```go
+      package main
+
+      import (
+          "github.com/gin-gonic/gin"
+          "gorm.io/driver/mysql"
+          "gorm.io/gorm"
+      )
+
+      type Player struct {
+          ID        uint64  `gorm:"primaryKey"`
+          Username  string  `gorm:"unique"`
+          Balance   float64
+          CreatedAt time.Time
+          UpdatedAt time.Time
+      }
+
+      type PointTransaction struct {
+          ID        uint64    `gorm:"primaryKey"`
+          PlayerID  uint64
+          GameType  string
+          Amount    float64
+          Type      string
+          CreatedAt time.Time
+      }
+
+      func main() {
+          db, _ := gorm.Open(mysql.Open("dsn"), &gorm.Config{})
+          r := gin.Default()
+
+          // 查詢玩家點數
+          r.GET("/admin/players/:id/points", func(c *gin.Context) {
+              var player Player
+              id := c.Param("id")
+              if err := db.First(&player, id).Error; err != nil {
+                  c.JSON(404, gin.H{"error": "Player not found"})
+                  return
+              }
+              c.JSON(200, gin.H{"id": player.ID, "username": player.Username, "balance": player.Balance})
+          })
+
+          // 查詢交易歷史
+          r.GET("/admin/players/:id/transactions", func(c *gin.Context) {
+              var transactions []PointTransaction
+              id := c.Param("id")
+              db.Where("player_id = ?", id).Find(&transactions)
+              c.JSON(200, transactions)
+          })
+
+          // 更新點數（遊戲結果）
+          r.POST("/admin/players/:id/update_points", func(c *gin.Context) {
+              var input struct {
+                  GameType string  `json:"game_type"`
+                  Amount   float64 `json:"amount"`
+                  Type     string  `json:"type"`
+              }
+              if err := c.BindJSON(&input); err != nil {
+                  c.JSON(400, gin.H{"error": "Invalid input"})
+                  return
+              }
+              id := c.Param("id")
+              db.Transaction(func(tx *gorm.DB) error {
+                  var player Player
+                  if err := tx.First(&player, id).Error; err != nil {
+                      return err
+                  }
+                  newBalance := player.Balance + input.Amount
+                  if newBalance < 0 {
+                      return errors.New("Insufficient balance")
+                  }
+                  tx.Model(&player).Update("balance", newBalance)
+                  tx.Create(&PointTransaction{
+                      PlayerID:  player.ID,
+                      GameType:  input.GameType,
+                      Amount:    input.Amount,
+                      Type:      input.Type,
+                      CreatedAt: time.Now(),
+                  })
+                  return nil
+              })
+              c.JSON(200, gin.H{"status": "Points updated"})
+          })
+
+          r.Run(":8081") // 後台獨立端口
+      }
+      ```
+  - **前端整合**：
+    - 後台管理介面使用 Next.js 開發，呼叫上述 API 顯示點數和交易歷史。
+    - 示例：排行榜頁面
+      ```tsx
+      // pages/admin/leaderboard.tsx
+      import { useEffect, useState } from 'react';
+
+      export default function Leaderboard() {
+        const [players, setPlayers] = useState([]);
+
+        useEffect(() => {
+          fetch('/api/admin/players?sort=balance&limit=10')
+            .then((res) => res.json())
+            .then((data) => setPlayers(data));
+        }, []);
+
+        return (
+          <div>
+            <h1>玩家排行榜</h1>
+            <ul>
+              {players.map((player) => (
+                <li key={player.id}>{player.username}: {player.balance} 點</li>
+              ))}
+            </ul>
+          </div>
+        );
+      }
+      ```
+  - **效能優化**：
+    - 使用 MySQL 或 PostgreSQL 作為資料庫，添加索引（`player_id`, `created_at`）加速查詢。
+    - 快取排行榜數據（使用 Redis）：
+      ```go
+      import "github.com/go-redis/redis/v8"
+
+      func getLeaderboard(ctx context.Context, limit int) ([]Player, error) {
+          client := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+          cached, err := client.Get(ctx, "leaderboard").Result()
+          if err == nil {
+              var players []Player
+              json.Unmarshal([]byte(cached), &players)
+              return players, nil
+          }
+          var players []Player
+          db.Order("balance DESC").Limit(limit).Find(&players)
+          client.Set(ctx, "leaderboard", json.Marshal(players), 5*time.Minute)
+          return players, nil
+      }
+      ```
+    - 防止點數異常：使用資料庫事務（`db.Transaction`）確保點數更新和交易記錄一致。
+
+#### 2. 代理商、經銷商分潤與損失（帳目）
+- **功能需求**：
+  - 管理代理商和經銷商的層級結構（例如代理商下有多個經銷商）。
+  - 計算分潤（根據玩家點數消費分成）與損失（玩家贏得的點數）。
+  - 提供帳目報表（按時間、代理商/經銷商篩選）。
+  - 支援結算和支付記錄。
+- **技術實現**：
+  - **資料庫設計**：
+    - 表格：`agents`
+      ```sql
+      CREATE TABLE agents (
+          id BIGINT PRIMARY KEY,
+          name VARCHAR(50),
+          parent_id BIGINT, -- 上級代理商，NULL 表示頂級
+          level ENUM('agent', 'dealer') NOT NULL, -- 代理商或經銷商
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (parent_id) REFERENCES agents(id)
+      );
+      ```
+    - 表格：`agent_transactions`
+      ```sql
+      CREATE TABLE agent_transactions (
+          id BIGINT PRIMARY KEY AUTO_INCREMENT,
+          agent_id BIGINT,
+          player_id BIGINT,
+          game_type VARCHAR(20),
+          amount DECIMAL(15, 2), -- 正數為分潤，負數為損失
+          type ENUM('profit', 'loss') NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (agent_id) REFERENCES agents(id),
+          FOREIGN KEY (player_id) REFERENCES players(id)
+      );
+      ```
+  - **分潤邏輯**：
+    - 假設分潤比例：代理商 5%，經銷商 3%（根據玩家消費點數計算）。
+    - 示例：玩家在德州撲克下注 100 點，經銷商獲 3 點，代理商獲 5 點。
+    - 損失：玩家贏得點數從代理商/經銷商帳戶扣除。
+  - **Golang 後端**：
+    - API 處理分潤計算和帳目查詢：
+      ```go
+      func calculateProfit(c *gin.Context) {
+          var input struct {
+              PlayerID  uint64  `json:"player_id"`
+              GameType  string  `json:"game_type"`
+              BetAmount float64 `json:"bet_amount"`
+          }
+          if err := c.BindJSON(&input); err != nil {
+              c.JSON(400, gin.H{"error": "Invalid input"})
+              return
+          }
+
+          // 查找玩家所屬經銷商和代理商
+          var player Player
+          db.First(&player, input.PlayerID)
+          var dealer, agent Agent
+          db.Where("id IN (SELECT agent_id FROM player_agents WHERE player_id = ?)", input.PlayerID).Find(&dealer)
+          db.Where("id = ?", dealer.ParentID).Find(&agent)
+
+          // 計算分潤
+          dealerProfit := input.BetAmount * 0.03 // 經銷商 3%
+          agentProfit := input.BetAmount * 0.05  // 代理商 5%
+
+          db.Transaction(func(tx *gorm.DB) error {
+              tx.Create(&AgentTransaction{
+                  AgentID:   dealer.ID,
+                  PlayerID:  input.PlayerID,
+                  GameType:  input.GameType,
+                  Amount:    dealerProfit,
+                  Type:      "profit",
+                  CreatedAt: time.Now(),
+              })
+              tx.Create(&AgentTransaction{
+                  AgentID:   agent.ID,
+                  PlayerID:  input.PlayerID,
+                  GameType:  input.GameType,
+                  Amount:    agentProfit,
+                  Type:      "profit",
+                  CreatedAt: time.Now(),
+              })
+              return nil
+          })
+
+          c.JSON(200, gin.H{"status": "Profit calculated"})
+      }
+
+      // 查詢帳目報表
+      r.GET("/admin/agents/:id/report", func(c *gin.Context) {
+          var transactions []AgentTransaction
+          id := c.Param("id")
+          db.Where("agent_id = ?", id).Find(&transactions)
+          c.JSON(200, transactions)
+      })
+      ```
+  - **前端整合**：
+    - Next.js 後台頁面顯示代理商/經銷商帳目：
+      ```tsx
+      // pages/admin/agent-report.tsx
+      import { useEffect, useState } from 'react';
+
+      export default function AgentReport({ agentId }) {
+        const [transactions, setTransactions] = useState([]);
+
+        useEffect(() => {
+          fetch(`/api/admin/agents/${agentId}/report`)
+            .then((res) => res.json())
+            .then((data) => setTransactions(data));
+        }, [agentId]);
+
+        return (
+          <div>
+            <h1>代理商/經銷商帳目</h1>
+            <table>
+              <thead>
+                <tr>
+                  <th>時間</th>
+                  <th>玩家</th>
+                  <th>遊戲</th>
+                  <th>金額</th>
+                  <th>類型</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.map((tx) => (
+                  <tr key={tx.id}>
+                    <td>{tx.created_at}</td>
+                    <td>{tx.player_id}</td>
+                    <td>{tx.game_type}</td>
+                    <td>{tx.amount}</td>
+                    <td>{tx.type}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      }
+      ```
+  - **效能優化**：
+    - 使用 Redis 快取帳目報表，減少資料庫查詢：
+      ```go
+      func getAgentReport(ctx context.Context, agentID uint64) ([]AgentTransaction, error) {
+          client := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+          cached, err := client.Get(ctx, fmt.Sprintf("agent_report:%d", agentID)).Result()
+          if err == nil {
+              var txs []AgentTransaction
+              json.Unmarshal([]byte(cached), &txs)
+              return txs, nil
+          }
+          var txs []AgentTransaction
+          db.Where("agent_id = ?", agentID).Find(&txs)
+          client.Set(ctx, fmt.Sprintf("agent_report:%d", agentID), json.Marshal(txs), 10*time.Minute)
+          return txs, nil
+      }
+      ```
+    - 批量處理分潤計算（例如每日結算），使用 Golang 的 goroutines：
+      ```go
+      func batchCalculateProfit(transactions []PlayerTransaction) {
+          var wg sync.WaitGroup
+          for _, tx := range transactions {
+              wg.Add(1)
+              go func(t PlayerTransaction) {
+                  defer wg.Done()
+                  // 計算分潤
+                  dealerProfit := t.Amount * 0.03
+                  agentProfit := t.Amount * 0.05
+                  db.Create(&AgentTransaction{AgentID: dealerID, Amount: dealerProfit, Type: "profit"})
+                  db.Create(&AgentTransaction{AgentID: agentID, Amount: agentProfit, Type: "profit"})
+              }(tx)
+          }
+          wg.Wait()
+      }
+      ```
+
+#### 3. 遊戲控管
+- **功能需求**：
+  - 監控遊戲運行狀態（例如玩家數、遊戲頻率、異常行為）。
+  - 設置遊戲參數（例如最低下注、桌子數量、AI 難度）。
+  - 風險控制（檢測作弊、限制高風險玩家）。
+  - 提供遊戲日誌和報表（異常事件、系統錯誤）。
+- **技術實現**：
+  - **資料庫設計**：
+    - 表格：`game_logs`
+      ```sql
+      CREATE TABLE game_logs (
+          id BIGINT PRIMARY KEY AUTO_INCREMENT,
+          game_type VARCHAR(20),
+          player_id BIGINT,
+          action VARCHAR(50), -- 例如 "bet", "fold", "win"
+          amount DECIMAL(15, 2),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (player_id) REFERENCES players(id)
+      );
+      ```
+    - 表格：`game_settings`
+      ```sql
+      CREATE TABLE game_settings (
+          id BIGINT PRIMARY KEY AUTO_INCREMENT,
+          game_type VARCHAR(20) UNIQUE,
+          min_bet DECIMAL(15, 2),
+          max_bet DECIMAL(15, 2),
+          table_count INT,
+          ai_difficulty ENUM('easy', 'medium', 'hard') DEFAULT 'medium',
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      ```
+  - **Golang 後端**：
+    - API 處理遊戲監控和設置：
+      ```go
+      // 監控遊戲狀態
+      r.GET("/admin/games/status", func(c *gin.Context) {
+          var stats struct {
+              ActivePlayers int
+              TotalBets     float64
+              GamesRunning  int
+          }
+          db.Raw("SELECT COUNT(DISTINCT player_id) as active_players, SUM(amount) as total_bets FROM game_logs WHERE created_at > ?", time.Now().Add(-1*time.Hour)).Scan(&stats)
+          stats.GamesRunning = getActiveTables() // 假設函數
+          c.JSON(200, stats)
+      })
+
+      // 更新遊戲設置
+      r.POST("/admin/games/settings", func(c *gin.Context) {
+          var input struct {
+              GameType     string  `json:"game_type"`
+              MinBet       float64 `json:"min_bet"`
+              MaxBet       float64 `json:"max_bet"`
+              TableCount   int     `json:"table_count"`
+              AIDifficulty string  `json:"ai_difficulty"`
+          }
+          if err := c.BindJSON(&input); err != nil {
+              c.JSON(400, gin.H{"error": "Invalid input"})
+              return
+          }
+          db.Save(&GameSetting{
+              GameType:     input.GameType,
+              MinBet:       input.MinBet,
+              MaxBet:       input.MaxBet,
+              TableCount:   input.TableCount,
+              AIDifficulty: input.AIDifficulty,
+          })
+          c.JSON(200, gin.H{"status": "Settings updated"})
+      })
+
+      // 風險控制：檢測異常玩家
+      func detectCheaters() {
+          var suspicious []Player
+          db.Raw(`
+              SELECT p.*
+              FROM players p
+              JOIN game_logs g ON p.id = g.player_id
+              WHERE g.amount > 10000 AND g.created_at > ?
+              GROUP BY p.id
+              HAVING COUNT(*) > 10
+          `, time.Now().Add(-24*time.Hour)).Scan(&suspicious)
+          for _, player := range suspicious {
+              log.Printf("Suspicious player: %s, ID: %d", player.Username, player.ID)
+          }
+      }
+      ```
+  - **前端整合**：
+    - Next.js 後台頁面顯示遊戲狀態和設置：
+      ```tsx
+      // pages/admin/game-control.tsx
+      import { useEffect, useState } from 'react';
+
+      export default function GameControl() {
+        const [status, setStatus] = useState({});
+
+        useEffect(() => {
+          fetch('/api/admin/games/status')
+            .then((res) => res.json())
+            .then((data) => setStatus(data));
+        }, []);
+
+        return (
+          <div>
+            <h1>遊戲狀態</h1>
+            <p>活躍玩家: {status.activePlayers}</p>
+            <p>總下注: {status.totalBets}</p>
+            <p>運行桌子: {status.gamesRunning}</p>
+          </div>
+        );
+      }
+      ```
+  - **效能優化**：
+    - 使用 Redis 儲存即時遊戲狀態，減少資料庫負載：
+      ```go
+      func updateGameStatus(ctx context.Context, stats GameStats) {
+          client := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+          client.Set(ctx, "game_status", json.Marshal(stats), 1*time.Minute)
+      }
+      ```
+    - 定時任務（使用 `github.com/robfig/cron`）執行風險檢測：
+      ```go
+      import "github.com/robfig/cron/v3"
+
+      func startCronJobs() {
+          c := cron.New()
+          c.AddFunc("@hourly", detectCheaters)
+          c.Start()
+      }
+      ```
+    - 日誌壓縮：使用 `logrotate` 或 Elasticsearch 儲存遊戲日誌，節省空間。
+
+### 後台技術架構
+- **技術棧**：
+  - **後端**：Golang（Gin 框架，GORM ORM）。
+  - **資料庫**：MySQL/PostgreSQL（交易和玩家數據），Redis（快取和即時狀態）。
+  - **前端**：Next.js（後台管理介面，與遊戲端共用技術）。
+  - **部署**：Docker + Kubernetes（參考你對 NexusERP 的 Docker 經驗），後端和資料庫分離部署。
+- **架構圖**：
+  ```
+  [遊戲客戶端: Three.js + Next.js]
+          ↕ (REST API / WebSocket)
+  [後端: Golang + Gin]
+          ↕ (GORM)
+  [資料庫: MySQL/PostgreSQL]
+          ↕ (Redis Client)
+  [快取: Redis]
+  [後台管理: Next.js]
+  ```
+- **安全性**：
+  - 使用 JWT 認證保護後台 API：
+    ```go
+    func authMiddleware() gin.HandlerFunc {
+        return func(c *gin.Context) {
+            token := c.GetHeader("Authorization")
+            if !validateJWT(token) {
+                c.JSON(401, gin.H{"error": "Unauthorized"})
+                c.Abort()
+                return
+            }
+            c.Next()
+        }
+    }
+    ```
+  - 資料加密：玩家點數和交易記錄使用 AES 加密儲存。
+  - 防止 SQL 注入：使用 GORM 的參數化查詢。
+
+### 效能與擴展性
+- **高並發**：
+  - Golang 的 gor콜outines 處理高並發請求（例如點數更新、分潤計算）。
+  - 使用 Redis 作為分佈式鎖，防止並發更新點數錯誤：
+    ```go
+    func updatePlayerBalance(playerID uint64, amount float64) error {
+        lock := redis.NewClient(&redis.Options{Addr: "localhost:6379"}).SetNX(context.Background(), fmt.Sprintf("lock:%d", playerID), 1, 10*time.Second)
+        if lock.Val() {
+            defer redis.Del(context.Background(), fmt.Sprintf("lock:%d", playerID))
+            // 更新點數
+        }
+        return errors.New("Failed to acquire lock")
+    }
+    ```
+- **資料庫優化**：
+  - 分表：`point_transactions` 和 `agent_transactions` 按時間分表（例如每月一表）。
+  - 索引：`player_id`, `agent_id`, `created_at` 加速查詢。
+- **監控**：
+  - 使用 Prometheus + Grafana 監控後台性能（API 延遲、資料庫查詢時間）。
+  - 範例：Prometheus 中間件
+    ```go
+    func prometheusMiddleware() gin.HandlerFunc {
+        return func(c *gin.Context) {
+            start := time.Now()
+            c.Next()
+            duration := time.Since(start).Seconds()
+            prometheus.NewHistogramVec(prometheus.HistogramOpts{
+                Name: "http_request_duration_seconds",
+            }, []string{"path"}).WithLabelValues(c.Request.URL.Path).Observe(duration)
+        }
+    }
+    ```
+
+### 與遊戲端整合
+- **點數同步**：
+  - 遊戲端（Three.js）透過 WebSocket 傳送遊戲結果，後台更新 `point_transactions`：
+    ```go
+    func handleGameResult(conn *websocket.Conn) {
+        var result struct {
+            PlayerID uint64  `json:"player_id"`
+            GameType string  `json:"game_type"`
+            Amount   float64 `json:"amount"`
+        }
+        conn.ReadJSON(&result)
+        db.Create(&PointTransaction{
+            PlayerID:  result.PlayerID,
+            GameType:  result.GameType,
+            Amount:    result.Amount,
+            Type:      "win",
+        })
+    }
+    ```
+- **遊戲控管**：
+  - 遊戲端從 `game_settings` 載入參數：
+    ```go
+    func getGameSettings(c *gin.Context) {
+        var settings []GameSetting
+        db.Find(&settings)
+        c.JSON(200, settings)
+    }
+    ```
+  - 遊戲端檢查設置（例如最低下注）：
+    ```tsx
+    useEffect(() => {
+      fetch('/api/game/settings?game=texas')
+        .then((res) => res.json())
+        .then((data) => setMinBet(data.min_bet));
+    }, []);
+    ```
+
+### 實現建議
+- **優先級**：
+  1. **玩家點數統計**：核心功能，優先實現資料庫和 API，確保遊戲端點數同步。
+  2. **遊戲控管**：實現監控和設置，確保遊戲穩定運行。
+  3. **代理商分潤**：最後實現，涉及複雜帳目邏輯，需穩定點數系統後開發。
+- **開發步驟**：
+  1. 搭建 MySQL/PostgreSQL 和 Redis，初始化資料庫結構。
+  2. 開發 Golang 後端 API（Gin + GORM），實現點數統計和遊戲控管。
+  3. 開發 Next.js 後台介面，顯示報表和設置。
+  4. 實現分潤邏輯，測試帳目準確性。
+  5. 部署至 Docker/Kubernetes，監控性能。
+- **測試**：
+  - 模擬高並發點數更新，測試事務一致性。
+  - 檢查分潤計算準確性（例如模擬 1000 次玩家下注）。
+  - 測試手機後台 UI（確保響應式設計）。
+
+### 結論
+- **功能實現**：
+  - **玩家點數統計**：使用 MySQL 儲存點數和交易記錄，Golang API 提供查詢和更新，Redis 快取排行榜。
+  - **代理商分潤與損失**：設計層級結構，Golang 計算分潤，Next.js 顯示報表，goroutines 批量處理。
+  - **遊戲控管**：監控遊戲狀態，設置參數，實現風險檢測，Elasticsearch 儲存日誌。
+- **技術棧**：Golang（後端）、MySQL/PostgreSQL + Redis（資料庫）、Next.js（後台介面）、Docker/Kubernetes（部署）。
+- **與遊戲端整合**：WebSocket 同步點數，API 提供設置，Three.js 呈現遊戲動畫。
+- **與你興趣的連結**：
+  - 點數統計和分潤的概率計算類似你在交易分析中的風險評估。
+  - Golang 的高效能和 Docker 部署延續你的 NexusERP 經驗。
+  - 遊戲控管的異常檢測與你在 AI 優化中的概率計算興趣契合。
+
+如果需要更詳細的某功能程式碼（例如分潤邏輯的完整實現）、資料庫優化細節或部署配置，請提供具體要求，我可以進一步客製化方案！

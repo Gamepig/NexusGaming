@@ -1,0 +1,240 @@
+# --- 資料庫設計 (SQL) --- 
+
+# CREATE TABLE players (
+#     id BIGINT PRIMARY KEY,
+#     username VARCHAR(50) UNIQUE,
+#     balance DECIMAL(15, 2) DEFAULT 0.0, 
+#     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+#     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+# );
+
+# CREATE TABLE point_transactions (
+#     id BIGINT PRIMARY KEY AUTO_INCREMENT,
+#     player_id BIGINT,
+#     game_type VARCHAR(20),
+#     amount DECIMAL(15, 2),
+#     type ENUM('win', 'loss', 'deposit', 'withdraw') NOT NULL,
+#     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+#     FOREIGN KEY (player_id) REFERENCES players(id)
+# );
+# CREATE INDEX idx_pt_player_created ON point_transactions(player_id, created_at);
+
+# CREATE TABLE agents (
+#     id BIGINT PRIMARY KEY,
+#     name VARCHAR(50),
+#     parent_id BIGINT, 
+#     level ENUM('agent', 'dealer') NOT NULL, 
+#     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+#     FOREIGN KEY (parent_id) REFERENCES agents(id)
+# );
+
+# CREATE TABLE agent_transactions (
+#     id BIGINT PRIMARY KEY AUTO_INCREMENT,
+#     agent_id BIGINT,
+#     player_id BIGINT,
+#     game_type VARCHAR(20),
+#     amount DECIMAL(15, 2),
+#     type ENUM('profit', 'loss') NOT NULL,
+#     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+#     FOREIGN KEY (agent_id) REFERENCES agents(id),
+#     FOREIGN KEY (player_id) REFERENCES players(id)
+# );
+# CREATE INDEX idx_at_agent_created ON agent_transactions(agent_id, created_at);
+
+# CREATE TABLE game_logs (
+#     id BIGINT PRIMARY KEY AUTO_INCREMENT,
+#     game_type VARCHAR(20),
+#     player_id BIGINT,
+#     action VARCHAR(50),
+#     amount DECIMAL(15, 2),
+#     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+#     FOREIGN KEY (player_id) REFERENCES players(id)
+# );
+# CREATE INDEX idx_gl_player_created ON game_logs(player_id, created_at);
+# CREATE INDEX idx_gl_gametype_created ON game_logs(game_type, created_at);
+
+# CREATE TABLE game_settings (
+#     id BIGINT PRIMARY KEY AUTO_INCREMENT,
+#     game_type VARCHAR(20) UNIQUE,
+#     min_bet DECIMAL(15, 2),
+#     max_bet DECIMAL(15, 2),
+#     table_count INT,
+#     ai_difficulty ENUM('easy', 'medium', 'hard') DEFAULT 'medium',
+#     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+# );
+
+# --- Golang 後端 (Gin + GORM 骨架) ---
+
+# package main
+
+# import (
+#     "context"
+#     "encoding/json"
+#     "errors"
+#     "fmt"
+#     "log"
+#     "sync"
+#     "time"
+
+#     "github.com/gin-gonic/gin"
+#     "github.com/go-redis/redis/v8"
+#     "github.com/robfig/cron/v3"
+#     "gorm.io/driver/mysql"
+#     "gorm.io/gorm"
+#     // "github.com/dgrijalva/jwt-go" // For JWT
+#     // "github.com/prometheus/client_golang/prometheus"
+#     // "github.com/prometheus/client_golang/prometheus/promhttp"
+# )
+
+# // --- GORM Models ---
+# type Player struct { /* ... fields ... */ }
+# type PointTransaction struct { /* ... fields ... */ }
+# type Agent struct { ParentID *uint64 /* ... other fields ... */ }
+# type AgentTransaction struct { /* ... fields ... */ }
+# type GameLog struct { /* ... fields ... */ }
+# type GameSetting struct { /* ... fields ... */ }
+
+# // Assume db *gorm.DB and redisClient *redis.Client are initialized globally or passed around
+# var db *gorm.DB
+# var redisClient *redis.Client
+
+# func main() {
+#     // Initialize DB (GORM)
+#     // dsn := "user:pass@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
+#     // db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+#     // if err != nil { panic("failed to connect database") }
+#     // db.AutoMigrate(&Player{}, &PointTransaction{}, &Agent{}, &AgentTransaction{}, &GameLog{}, &GameSetting{})
+
+#     // Initialize Redis
+#     // redisClient = redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+
+#     r := gin.Default()
+
+#     adminGroup := r.Group("/admin")
+#     // adminGroup.Use(authMiddleware()) // Add JWT middleware
+#     {
+#         // Player Points Routes
+#         adminGroup.GET("/players/:id/points", getPlayerPoints)
+#         adminGroup.GET("/players/:id/transactions", getPlayerTransactions)
+#         adminGroup.POST("/players/:id/update_points", updatePlayerPoints)
+#         adminGroup.GET("/leaderboard", getLeaderboardRoute)
+
+#         // Agent Routes
+#         adminGroup.POST("/agents/calculate_profit", calculateProfit)
+#         adminGroup.GET("/agents/:id/report", getAgentReportRoute)
+
+#         // Game Control Routes
+#         adminGroup.GET("/games/status", getGameStatus)
+#         adminGroup.POST("/games/settings", updateGameSettings)
+#         adminGroup.GET("/games/settings", getGameSettingsRoute) // For game client
+#     }
+
+#     // WebSocket Route (potentially outside admin group)
+#     // r.GET("/ws", handleWebSocket) 
+
+#     // Start Cron Jobs
+#     // startCronJobs()
+
+#     // Prometheus Metrics Endpoint (optional)
+#     // r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+#     r.Run(":8081") // Run admin backend on separate port
+# }
+
+# // --- Handler Functions (Placeholders) ---
+
+# func getPlayerPoints(c *gin.Context) { /* ... GORM query ... */ c.JSON(200, gin.H{"balance": 1000}) }
+# func getPlayerTransactions(c *gin.Context) { /* ... GORM query ... */ c.JSON(200, []PointTransaction{}) }
+# func updatePlayerPoints(c *gin.Context) {
+#   id := c.Param("id")
+#   var input struct { Amount float64; Type string; GameType string }
+#   if err := c.BindJSON(&input); err != nil { c.JSON(400, gin.H{"error": "invalid input"}); return }
+
+#   // --- Use Redis Lock ---
+#   lockKey := fmt.Sprintf("lock:player:%s", id)
+#   lockAcquired, err := redisClient.SetNX(c.Request.Context(), lockKey, "1", 10*time.Second).Result()
+#   if err != nil || !lockAcquired {
+#       c.JSON(http.StatusConflict, gin.H{"error": "Failed to acquire lock or already processing"})
+#       return
+#   }
+#   defer redisClient.Del(c.Request.Context(), lockKey)
+#   // --- End Redis Lock ---
+
+#   err = db.Transaction(func(tx *gorm.DB) error {
+#       var player Player
+#       // Fetch player, update balance, create transaction
+#       return nil // return error to rollback
+#   })
+#   if err != nil { c.JSON(500, gin.H{"error": err.Error()}); return }
+#   c.JSON(200, gin.H{"status": "updated"})
+# }
+# func getLeaderboardRoute(c *gin.Context) {
+#   players, err := getLeaderboardCached(c.Request.Context(), 10)
+#   if err != nil { c.JSON(500, gin.H{"error": "Failed to get leaderboard"}); return }
+#   c.JSON(200, players)
+# }
+
+# func calculateProfit(c *gin.Context) { /* ... calculate and create AgentTransaction ... */ c.JSON(200, gin.H{"status": "calculated"}) }
+# func getAgentReportRoute(c *gin.Context) {
+#   agentId := c.Param("id")
+#   // Convert agentId to uint64
+#   txs, err := getAgentReportCached(c.Request.Context(), 0 /* agentIdUint */)
+#   if err != nil { c.JSON(500, gin.H{"error": "Failed to get report"}); return }
+#   c.JSON(200, txs)
+# }
+
+# func getGameStatus(c *gin.Context) { /* ... query stats or get from Redis ... */ c.JSON(200, gin.H{"active_players": 5}) }
+# func updateGameSettings(c *gin.Context) { /* ... bind JSON and save GameSetting ... */ c.JSON(200, gin.H{"status": "updated"}) }
+# func getGameSettingsRoute(c *gin.Context) { /* ... fetch GameSetting from DB or cache ... */ c.JSON(200, []GameSetting{}) }
+
+# // --- Helper Functions (Caching, Cron, etc.) ---
+
+# func getLeaderboardCached(ctx context.Context, limit int) ([]Player, error) {
+#   cacheKey := "leaderboard"
+#   cached, err := redisClient.Get(ctx, cacheKey).Result()
+#   if err == nil {
+#       var players []Player
+#       if json.Unmarshal([]byte(cached), &players) == nil {
+#           return players, nil
+#       }
+#   }
+#   var players []Player
+#   // db.Order("balance DESC").Limit(limit).Find(&players)
+#   // Cache result
+#   // playersJSON, _ := json.Marshal(players)
+#   // redisClient.Set(ctx, cacheKey, playersJSON, 5*time.Minute)
+#   return players, nil
+# }
+
+# func getAgentReportCached(ctx context.Context, agentID uint64) ([]AgentTransaction, error) {
+#     cacheKey := fmt.Sprintf("agent_report:%d", agentID)
+#     // ... check Redis, fetch from DB, cache result ...
+#     return []AgentTransaction{}, nil
+# }
+
+# func detectCheaters() {
+#   log.Println("Running cheat detection...")
+#   // ... query DB for suspicious patterns ...
+# }
+
+# func startCronJobs() {
+#   c := cron.New()
+#   c.AddFunc("@hourly", detectCheaters) // Run cheat detection every hour
+#   // c.AddFunc("@daily", batchCalculateProfit) // Run profit calculation daily
+#   c.Start()
+#   log.Println("Cron jobs started.")
+# }
+
+# func authMiddleware() gin.HandlerFunc { // Placeholder for JWT validation
+#   return func(c *gin.Context) {
+#       // tokenString := c.GetHeader("Authorization")
+#       // if tokenString == "" { c.AbortWithStatusJSON(401, gin.H{"error": "Unauthorized"}); return }
+#       // token, err := jwt.Parse(tokenString[7:], func(token *jwt.Token) (interface{}, error) { return []byte("your_secret_key"), nil })
+#       // if err != nil || !token.Valid { c.AbortWithStatusJSON(401, gin.H{"error": "Invalid token"}); return }
+#       // c.Set("userID", token.Claims.(jwt.MapClaims)["user_id"])
+#       c.Next()
+#   }
+# }
+
+# // --- WebSocket Handler (Placeholder) ---
+# // func handleWebSocket(c *gin.Context) { ... upgrade connection, read/write messages ... } 

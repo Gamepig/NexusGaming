@@ -1,0 +1,776 @@
+需加入玩家、經銷商、代理商開分系統(儲值)
+代理商、經銷商分潤配置有變化時需要連動，只有代理商與總公司可以調整
+設計返水規則
+
+感謝你進一步補充後台功能需求！你在既有撲克類遊戲後台（基於 **Three.js + Next.js** 前端，**Golang** 後端，支援手機網頁全螢幕，涵蓋德州撲克、傳統梭哈、百家樂等變體）基礎上，新增了以下需求：
+
+1. **玩家、經銷商、代理商開分系統（儲值）**：允許玩家、經銷商、代理商進行點數儲值，並管理儲值流程。
+2. **代理商、經銷商分潤配置連動**：分潤比例變更時自動連動調整，且僅限代理商和總公司有權修改。
+3. **設計返水規則**：制定返水（類似現金回饋）機制，激勵玩家參與。
+
+我將針對這些新增需求，結合原有功能（玩家點數統計、代理商/經銷商分潤與損失、遊戲控管），設計一個完整的 Golang 後台系統，詳細規劃功能實現、資料庫結構、API 設計、效能優化，並確保與遊戲端整合。考慮到你的背景（對 AI 性能優化、交易分析中的概率計算有興趣，熟悉 Golang 和 Docker 部署），我會設計高效、可擴展的架構，並強調與你興趣的契合點（如分潤的概率計算類似交易風險評估）。
+
+---
+
+### 後台功能需求與實現規劃
+
+#### 1. 玩家、經銷商、代理商開分系統（儲值）
+- **功能需求**：
+  - **玩家儲值**：玩家可透過支付管道（例如信用卡、第三方支付）充值點數，點數記錄於玩家帳戶。
+  - **經銷商儲值**：經銷商可為其下屬玩家或自身帳戶儲值，點數從上級代理商分配。
+  - **代理商儲值**：代理商可為其下屬經銷商或自身帳戶儲值，點數從總公司分配。
+  - **儲值審核**：儲值申請需後台審核（例如手動或自動），防止詐欺。
+  - **儲值記錄**：記錄所有儲值交易（金額、來源、時間）。
+- **技術實現**：
+  - **資料庫設計**：
+    - 擴展 `players` 和 `agents` 表格，新增儲值相關欄位：
+      ```sql
+      ALTER TABLE players ADD COLUMN pending_balance DECIMAL(15, 2) DEFAULT 0.0; -- 待審核儲值
+      ALTER TABLE agents ADD COLUMN balance DECIMAL(15, 2) DEFAULT 0.0; -- 代理商/經銷商點數餘額
+      ALTER TABLE agents ADD COLUMN pending_balance DECIMAL(15, 2) DEFAULT 0.0;
+      ```
+    - 新增表格：`deposit_requests`
+      ```sql
+      CREATE TABLE deposit_requests (
+          id BIGINT PRIMARY KEY AUTO_INCREMENT,
+          user_id BIGINT, -- 玩家或代理商/經銷商 ID
+          user_type ENUM('player', 'agent', 'dealer') NOT NULL,
+          amount DECIMAL(15, 2) NOT NULL,
+          status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+          payment_method VARCHAR(50), -- 例如 "credit_card", "third_party"
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES players(id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES agents(id) ON DELETE CASCADE
+      );
+      ```
+  - **Golang 後端**：
+    - API 處理儲值申請和審核：
+      ```go
+      package main
+
+      import (
+          "github.com/gin-gonic/gin"
+          "gorm.io/driver/mysql"
+          "gorm.io/gorm"
+          "time"
+      )
+
+      type DepositRequest struct {
+          ID            uint64    `gorm:"primaryKey"`
+          UserID        uint64
+          UserType      string    // player, agent, dealer
+          Amount        float64
+          Status        string    // pending, approved, rejected
+          PaymentMethod string
+          CreatedAt     time.Time
+          UpdatedAt     time.Time
+      }
+
+      func main() {
+          db, _ := gorm.Open(mysql.Open("dsn"), &gorm.Config{})
+          r := gin.Default()
+
+          // 提交儲值申請
+          r.POST("/admin/deposit", func(c *gin.Context) {
+              var input struct {
+                  UserID        uint64  `json:"user_id"`
+                  UserType      string  `json:"user_type"`
+                  Amount        float64 `json:"amount"`
+                  PaymentMethod string  `json:"payment_method"`
+              }
+              if err := c.BindJSON(&input); err != nil {
+                  c.JSON(400, gin.H{"error": "Invalid input"})
+                  return
+              }
+              if input.Amount <= 0 {
+                  c.JSON(400, gin.H{"error": "Invalid amount"})
+                  return
+              }
+              deposit := DepositRequest{
+                  UserID:        input.UserID,
+                  UserType:      input.UserType,
+                  Amount:        input.Amount,
+                  Status:        "pending",
+                  PaymentMethod: input.PaymentMethod,
+                  CreatedAt:     time.Now(),
+              }
+              db.Create(&deposit)
+              c.JSON(200, gin.H{"status": "Deposit request created", "id": deposit.ID})
+          })
+
+          // 審核儲值
+          r.POST("/admin/deposit/:id/review", func(c *gin.Context) {
+              id := c.Param("id")
+              var input struct {
+                  Status string `json:"status"` // approved, rejected
+              }
+              if err := c.BindJSON(&input); err != nil {
+                  c.JSON(400, gin.H{"error": "Invalid input"})
+                  return
+              }
+              var deposit DepositRequest
+              if err := db.First(&deposit, id).Error; err != nil {
+                  c.JSON(404, gin.H{"error": "Deposit request not found"})
+                  return
+              }
+              if deposit.Status != "pending" {
+                  c.JSON(400, gin.H{"error": "Deposit already processed"})
+                  return
+              }
+              db.Transaction(func(tx *gorm.DB) error {
+                  if input.Status == "approved" {
+                      if deposit.UserType == "player" {
+                          tx.Model(&Player{}).Where("id = ?", deposit.UserID).Update("balance", gorm.Expr("balance + ?", deposit.Amount))
+                      } else {
+                          tx.Model(&Agent{}).Where("id = ?", deposit.UserID).Update("balance", gorm.Expr("balance + ?", deposit.Amount))
+                      }
+                  }
+                  tx.Model(&deposit).Updates(map[string]interface{}{
+                      "status":     input.Status,
+                      "updated_at": time.Now(),
+                  })
+                  return nil
+              })
+              c.JSON(200, gin.H{"status": "Deposit reviewed"})
+          })
+
+          r.Run(":8081")
+      }
+      ```
+  - **前端整合**：
+    - Next.js 後台頁面顯示儲值申請和審核介面：
+      ```tsx
+      // pages/admin/deposits.tsx
+      import { useEffect, useState } from 'react';
+
+      export default function Deposits() {
+        const [requests, setRequests] = useState([]);
+
+        useEffect(() => {
+          fetch('/api/admin/deposits')
+            .then((res) => res.json())
+            .then((data) => setRequests(data));
+        }, []);
+
+        const reviewDeposit = (id, status) => {
+          fetch(`/api/admin/deposit/${id}/review`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status }),
+          }).then(() => {
+            setRequests(requests.map((req) => (req.id === id ? { ...req, status } : req)));
+          });
+        };
+
+        return (
+          <div>
+            <h1>儲值申請</h1>
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>用戶</th>
+                  <th>金額</th>
+                  <th>方式</th>
+                  <th>狀態</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {requests.map((req) => (
+                  <tr key={req.id}>
+                    <td>{req.id}</td>
+                    <td>{req.user_id}</td>
+                    <td>{req.amount}</td>
+                    <td>{req.payment_method}</td>
+                    <td>{req.status}</td>
+                    <td>
+                      {req.status === 'pending' && (
+                        <>
+                          <button onClick={() => reviewDeposit(req.id, 'approved')}>通過</button>
+                          <button onClick={() => reviewDeposit(req.id, 'rejected')}>拒絕</button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      }
+      ```
+  - **效能與安全**：
+    - 使用 Redis 快取儲值申請狀態，減少資料庫查詢：
+      ```go
+      func getPendingDeposits(ctx context.Context) ([]DepositRequest, error) {
+          client := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+          cached, err := client.Get(ctx, "pending_deposits").Result()
+          if err == nil {
+              var deposits []DepositRequest
+              json.Unmarshal([]byte(cached), &deposits)
+              return deposits, nil
+          }
+          var deposits []DepositRequest
+          db.Where("status = ?", "pending").Find(&deposits)
+          client.Set(ctx, "pending_deposits", json.Marshal(deposits), 5*time.Minute)
+          return deposits, nil
+      }
+      ```
+    - 防止詐欺：限制單次儲值金額（例如上限 100,000 點），並記錄 IP 和設備資訊。
+    - 支付整合：使用第三方支付 API（例如 Stripe 或 PayPal），確保交易安全。
+
+#### 2. 代理商、經銷商分潤配置連動
+- **功能需求**：
+  - 允許代理商和總公司調整分潤比例（例如代理商 5% → 6%，經銷商 3% → 2%）。
+  - 分潤變更自動連動影響下級（例如代理商調整後，其下經銷商分潤同步更新）。
+  - 限制權限：僅代理商和總公司可修改，經銷商無權調整。
+  - 記錄分潤配置歷史，支援審計。
+- **技術實現**：
+  - **資料庫設計**：
+    - 新增表格：`profit_configs`
+      ```sql
+      CREATE TABLE profit_configs (
+          id BIGINT PRIMARY KEY AUTO_INCREMENT,
+          agent_id BIGINT, -- 代理商或總公司 ID
+          dealer_id BIGINT, -- 經銷商 ID，NULL 表示代理商級
+          profit_rate DECIMAL(5, 4), -- 分潤比例，例如 0.05 (5%)
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (agent_id) REFERENCES agents(id),
+          FOREIGN KEY (dealer_id) REFERENCES agents(id)
+      );
+      ```
+    - 新增表格：`profit_config_logs`
+      ```sql
+      CREATE TABLE profit_config_logs (
+          id BIGINT PRIMARY KEY AUTO_INCREMENT,
+          config_id BIGINT,
+          old_rate DECIMAL(5, 4),
+          new_rate DECIMAL(5, 4),
+          updated_by BIGINT, -- 總公司或代理商 ID
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (config_id) REFERENCES profit_configs(id)
+      );
+      ```
+  - **Golang 後端**：
+    - API 處理分潤配置和連動更新：
+      ```go
+      type ProfitConfig struct {
+          ID         uint64    `gorm:"primaryKey"`
+          AgentID    uint64
+          DealerID   *uint64   // 可為 NULL
+          ProfitRate float64
+          CreatedAt  time.Time
+          UpdatedAt  time.Time
+      }
+
+      type ProfitConfigLog struct {
+          ID        uint64    `gorm:"primaryKey"`
+          ConfigID  uint64
+          OldRate   float64
+          NewRate   float64
+          UpdatedBy uint64
+          CreatedAt time.Time
+      }
+
+      // 更新分潤配置
+      r.POST("/admin/profit/config", func(c *gin.Context) {
+          var input struct {
+              AgentID    uint64   `json:"agent_id"`
+              DealerID   *uint64  `json:"dealer_id"`
+              ProfitRate float64  `json:"profit_rate"`
+              UpdatedBy  uint64   `json:"updated_by"` // 總公司或代理商
+          }
+          if err := c.BindJSON(&input); err != nil {
+              c.JSON(400, gin.H{"error": "Invalid input"})
+              return
+          }
+          // 驗證權限
+          var updater Agent
+          if err := db.First(&updater, input.UpdatedBy).Error; err != nil || (updater.Level != "agent" && updater.ID != 1) { // ID 1 為總公司
+              c.JSON(403, gin.H{"error": "Unauthorized"})
+              return
+          }
+          db.Transaction(func(tx *gorm.DB) error {
+              var config ProfitConfig
+              if input.DealerID != nil {
+                  tx.Where("agent_id = ? AND dealer_id = ?", input.AgentID, *input.DealerID).First(&config)
+              } else {
+                  tx.Where("agent_id = ? AND dealer_id IS NULL", input.AgentID).First(&config)
+              }
+              oldRate := config.ProfitRate
+              tx.Save(&ProfitConfig{
+                  AgentID:    input.AgentID,
+                  DealerID:   input.DealerID,
+                  ProfitRate: input.ProfitRate,
+              })
+              tx.Create(&ProfitConfigLog{
+                  ConfigID:  config.ID,
+                  OldRate:   oldRate,
+                  NewRate:   input.ProfitRate,
+                  UpdatedBy: input.UpdatedBy,
+                  CreatedAt: time.Now(),
+              })
+              return nil
+          })
+          c.JSON(200, gin.H{"status": "Profit config updated"})
+      })
+
+      // 查詢分潤配置
+      r.GET("/admin/profit/configs", func(c *gin.Context) {
+          var configs []ProfitConfig
+          db.Find(&configs)
+          c.JSON(200, configs)
+      })
+      ```
+    - **連動邏輯**：
+      - 當代理商調整經銷商分潤時，自動更新 `profit_configs` 中對應記錄。
+      - 總公司可調整所有代理商的分潤比例，級聯更新下級經銷商：
+        ```go
+        func cascadeUpdateProfit(agentID uint64, newRate float64) {
+            var dealers []Agent
+            db.Where("parent_id = ?", agentID).Find(&dealers)
+            for _, dealer := range dealers {
+                db.Model(&ProfitConfig{}).Where("dealer_id = ?", dealer.ID).Update("profit_rate", newRate*0.6) // 假設經銷商比例為代理商的 60%
+            }
+        }
+        ```
+  - **前端整合**：
+    - Next.js 頁面管理分潤配置：
+      ```tsx
+      // pages/admin/profit-config.tsx
+      import { useEffect, useState } from 'react';
+
+      export default function ProfitConfig() {
+        const [configs, setConfigs] = useState([]);
+
+        useEffect(() => {
+          fetch('/api/admin/profit/configs')
+            .then((res) => res.json())
+            .then((data) => setConfigs(data));
+        }, []);
+
+        const updateConfig = (config) => {
+          fetch('/api/admin/profit/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config),
+          }).then(() => {
+            setConfigs(configs.map((c) => (c.id === config.id ? config : c)));
+          });
+        };
+
+        return (
+          <div>
+            <h1>分潤配置</h1>
+            <table>
+              <thead>
+                <tr>
+                  <th>代理商</th>
+                  <th>經銷商</th>
+                  <th>分潤比例</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {configs.map((config) => (
+                  <tr key={config.id}>
+                    <td>{config.agent_id}</td>
+                    <td>{config.dealer_id || '無'}</td>
+                    <td>
+                      <input
+                        type="number"
+                        value={config.profit_rate * 100}
+                        onChange={(e) =>
+                          updateConfig({ ...config, profit_rate: parseFloat(e.target.value) / 100 })
+                        }
+                      />
+                      %
+                    </td>
+                    <td>
+                      <button onClick={() => updateConfig(config)}>保存</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      }
+      ```
+  - **效能與安全**：
+    - 使用 Redis 快取分潤配置：
+      ```go
+      func getProfitConfigs(ctx context.Context) ([]ProfitConfig, error) {
+          client := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+          cached, err := client.Get(ctx, "profit_configs").Result()
+          if err == nil {
+              var configs []ProfitConfig
+              json.Unmarshal([]byte(cached), &configs)
+              return configs, nil
+          }
+          var configs []ProfitConfig
+          db.Find(&configs)
+          client.Set(ctx, "profit_configs", json.Marshal(configs), 10*time.Minute)
+          return configs, nil
+      }
+      ```
+    - 權限控制：JWT 驗證確保僅代理商或總公司可修改：
+      ```go
+      func authProfitConfig() gin.HandlerFunc {
+          return func(c *gin.Context) {
+              userID := c.GetUint64("user_id") // 從 JWT 獲取
+              var user Agent
+              if err := db.First(&user, userID).Error; err != nil || (user.Level != "agent" && userID != 1) {
+                  c.JSON(403, gin.H{"error": "Unauthorized"})
+                  c.Abort()
+                  return
+              }
+              c.Next()
+          }
+      }
+      ```
+
+#### 3. 返水規則
+- **功能需求**：
+  - 設計返水機制，根據玩家下注金額或遊戲次數提供點數回饋（例如每下注 1000 點返 1%）。
+  - 返水可按週期發放（例如每周、每月）。
+  - 支援不同遊戲類型（德州撲克、梭哈、百家樂）的返水比例。
+  - 記錄返水發放歷史，供玩家和後台查詢。
+- **返水規則設計**：
+  - **基本規則**：
+    - 返水比例：德州撲克 1%，傳統梭哈 0.8%，百家樂 0.5%（根據遊戲風險和利潤率調整）。
+    - 計算基礎：玩家有效下注金額（不含無效或取消下注）。
+    - 發放週期：每周一 00:00 自動計算和發放。
+    - 最低返水：1 點（小於 1 點不發放）。
+  - **特殊規則**：
+    - VIP 玩家（例如累計下注 > 100,000 點）獲得額外 0.2% 返水加成。
+    - 連續活躍玩家（每周至少下注 5 次）獲得 0.1% 返水加成。
+  - **限制**：
+    - 返水僅限實際下注（不含免費點數或贈點）。
+    - 防止刷返水：檢測異常高頻下注（例如短時間內反覆小額下注）。
+- **技術實現**：
+  - **資料庫設計**：
+    - 新增表格：`rebates`
+      ```sql
+      CREATE TABLE rebates (
+          id BIGINT PRIMARY KEY AUTO_INCREMENT,
+          player_id BIGINT,
+          game_type VARCHAR(20),
+          bet_amount DECIMAL(15, 2), -- 有效下注金額
+          rebate_amount DECIMAL(15, 2), -- 返水金額
+          period_start TIMESTAMP,
+          period_end TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (player_id) REFERENCES players(id)
+      );
+      ```
+  - **Golang 後端**：
+    - 定時計算和發放返水：
+      ```go
+      import "github.com/robfig/cron/v3"
+
+      type Rebate struct {
+          ID            uint64    `gorm:"primaryKey"`
+          PlayerID      uint64
+          GameType      string
+          BetAmount     float64
+          RebateAmount  float64
+          PeriodStart   time.Time
+          PeriodEnd     time.Time
+          CreatedAt     time.Time
+      }
+
+      func calculateRebates() {
+          periodStart := time.Now().AddDate(0, 0, -7)
+          periodEnd := time.Now()
+          var bets []struct {
+              PlayerID  uint64
+              GameType  string
+              TotalBet  float64
+          }
+          db.Raw(`
+              SELECT player_id, game_type, SUM(amount) as total_bet
+              FROM game_logs
+              WHERE action = 'bet' AND created_at BETWEEN ? AND ?
+              GROUP BY player_id, game_type
+          `, periodStart, periodEnd).Scan(&bets)
+
+          for _, bet := range bets {
+              rate := map[string]float64{
+                  "texas":    0.01,
+                  "stud":     0.008,
+                  "baccarat": 0.005,
+              }[bet.GameType]
+              // 檢查 VIP 和活躍加成
+              var player Player
+              db.First(&player, bet.PlayerID)
+              totalBet := bet.TotalBet
+              if totalBet > 100000 {
+                  rate += 0.002 // VIP 加成
+              }
+              var betCount int64
+              db.Model(&GameLog{}).Where("player_id = ? AND action = 'bet' AND created_at BETWEEN ? AND ?", bet.PlayerID, periodStart, periodEnd).Count(&betCount)
+              if betCount >= 5 {
+                  rate += 0.001 // 活躍加成
+              }
+              rebateAmount := totalBet * rate
+              if rebateAmount >= 1 {
+                  db.Transaction(func(tx *gorm.DB) error {
+                      tx.Create(&Rebate{
+                          PlayerID:     bet.PlayerID,
+                          GameType:     bet.GameType,
+                          BetAmount:    totalBet,
+                          RebateAmount: rebateAmount,
+                          PeriodStart:  periodStart,
+                          PeriodEnd:    periodEnd,
+                          CreatedAt:    time.Now(),
+                      })
+                      tx.Model(&Player{}).Where("id = ?", bet.PlayerID).Update("balance", gorm.Expr("balance + ?", rebateAmount))
+                      return nil
+                  })
+              }
+          }
+      }
+
+      func startCronJobs() {
+          c := cron.New()
+          c.AddFunc("0 0 * * 1", calculateRebates) // 每周一 00:00
+          c.Start()
+      }
+      ```
+    - API 查詢返水記錄：
+      ```go
+      r.GET("/admin/rebates", func(c *gin.Context) {
+          var rebates []Rebate
+          playerID := c.Query("player_id")
+          if playerID != "" {
+              db.Where("player_id = ?", playerID).Find(&rebates)
+          } else {
+              db.Find(&rebates)
+          }
+          c.JSON(200, rebates)
+      })
+      ```
+  - **前端整合**：
+    - Next.js 頁面顯示返水記錄：
+      ```tsx
+      // pages/admin/rebates.tsx
+      import { useEffect, useState } from 'react';
+
+      export default function Rebates() {
+        const [rebates, setRebates] = useState([]);
+
+        useEffect(() => {
+          fetch('/api/admin/rebates')
+            .then((res) => res.json())
+            .then((data) => setRebates(data));
+        }, []);
+
+        return (
+          <div>
+            <h1>返水記錄</h1>
+            <table>
+              <thead>
+                <tr>
+                  <th>玩家</th>
+                  <th>遊戲</th>
+                  <th>下注金額</th>
+                  <th>返水金額</th>
+                  <th>週期</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rebates.map((rebate) => (
+                  <tr key={rebate.id}>
+                    <td>{rebate.player_id}</td>
+                    <td>{rebate.game_type}</td>
+                    <td>{rebate.bet_amount}</td>
+                    <td>{rebate.rebate_amount}</td>
+                    <td>{rebate.period_start} - {rebate.period_end}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      }
+      ```
+  - **效能與安全**：
+    - 使用 Redis 快取返水計算中間結果：
+      ```go
+      func cacheBetTotals(ctx context.Context, bets []struct{ PlayerID uint64; GameType string; TotalBet float64 }) {
+          client := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+          client.Set(ctx, "bet_totals", json.Marshal(bets), 24*time.Hour)
+      }
+      ```
+    - 防止刷返水：檢測異常下注模式（例如每分鐘下注 > 100 次）：
+      ```go
+      func detectRebateAbuse() {
+          var suspicious []Player
+          db.Raw(`
+              SELECT p.*
+              FROM players p
+              JOIN game_logs g ON p.id = g.player_id
+              WHERE g.action = 'bet' AND g.created_at > ?
+              GROUP BY p.id
+              HAVING COUNT(*) > 100
+          `, time.Now().Add(-1*time.Hour)).Scan(&suspicious)
+          for _, player := range suspicious {
+              log.Printf("Potential rebate abuser: %s, ID: %d", player.Username, player.ID)
+          }
+      }
+      ```
+
+### 整體後台技術架構
+- **技術棧**：
+  - **後端**：Golang（Gin 框架，GORM ORM）。
+  - **資料庫**：MySQL/PostgreSQL（玩家、代理商、交易數據），Redis（快取即時狀態和報表）。
+  - **前端**：Next.js（後台管理介面，與遊戲端共用技術）。
+  - **部署**：Docker + Kubernetes（延續你在 NexusERP 的 Docker 經驗）。
+- **架構圖**：
+  ```
+  [遊戲客戶端: Three.js + Next.js]
+          ↕ (REST API / WebSocket)
+  [後端: Golang + Gin]
+          ↕ (GORM)
+  [資料庫: MySQL/PostgreSQL]
+          ↕ (Redis Client)
+  [快取: Redis]
+  [後台管理: Next.js]
+  ```
+- **安全性**：
+  - **JWT 認證**：保護所有後台 API，特別是分潤配置和儲值審核：
+    ```go
+    func authMiddleware() gin.HandlerFunc {
+        return func(c *gin.Context) {
+            token := c.GetHeader("Authorization")
+            if !validateJWT(token) {
+                c.JSON(401, gin.H{"error": "Unauthorized"})
+                c.Abort()
+                return
+            }
+            c.Next()
+        }
+    }
+    ```
+  - **資料加密**：點數、儲值和分潤記錄使用 AES 加密儲存。
+  - **防止 SQL 注入**：使用 GORM 參數化查詢。
+
+### 效能與擴展性
+- **高並發**：
+  - Golang 的 goroutines 處理儲值申請、分潤計算和返水發放：
+    ```go
+    func batchProcessDeposits(deposits []DepositRequest) {
+        var wg sync.WaitGroup
+        for _, deposit := range deposits {
+            wg.Add(1)
+            go func(d DepositRequest) {
+                defer wg.Done()
+                // 處理儲值
+                db.Model(&Player{}).Where("id = ?", d.UserID).Update("balance", gorm.Expr("balance + ?", d.Amount))
+            }(deposit)
+        }
+        wg.Wait()
+    }
+    ```
+  - 使用 Redis 分佈式鎖防止並發更新錯誤：
+    ```go
+    func lockBalanceUpdate(ctx context.Context, userID uint64) bool {
+        client := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+        return client.SetNX(ctx, fmt.Sprintf("lock:%d", userID), 1, 10*time.Second).Val()
+    }
+    ```
+- **資料庫優化**：
+  - 分表：`deposit_requests`, `agent_transactions`, `rebates` 按月分表。
+  - 索引：`user_id`, `created_at`, `status` 加速查詢。
+- **監控**：
+  - 使用 Prometheus + Grafana 監控 API 延遲和資料庫性能。
+  - 定時任務（`cron`）執行返水計算和異常檢測。
+
+### 與遊戲端整合
+- **儲值同步**：
+  - 遊戲端透過 WebSocket 傳送儲值請求，後台更新點數：
+    ```go
+    func handleDepositRequest(conn *websocket.Conn) {
+        var req struct {
+            UserID        uint64  `json:"user_id"`
+            Amount        float64 `json:"amount"`
+            PaymentMethod string  `json:"payment_method"`
+        }
+        conn.ReadJSON(&req)
+        db.Create(&DepositRequest{
+            UserID:        req.UserID,
+            UserType:      "player",
+            Amount:        req.Amount,
+            PaymentMethod: req.PaymentMethod,
+            Status:        "pending",
+        })
+    }
+    ```
+- **分潤與返水**：
+  - 遊戲端記錄下注，後台計算分潤和返水：
+    ```go
+    func recordBet(state GameState) {
+        db.Create(&GameLog{
+            PlayerID:  state.PlayerID,
+            GameType:  state.GameType,
+            Action:    "bet",
+            Amount:    state.CurrentBet,
+            CreatedAt: time.Now(),
+        })
+        // 計算分潤
+        configs := getProfitConfigs(context.Background())
+        for _, config := range configs {
+            amount := state.CurrentBet * config.ProfitRate
+            db.Create(&AgentTransaction{
+                AgentID:   config.AgentID,
+                PlayerID:  state.PlayerID,
+                GameType:  state.GameType,
+                Amount:    amount,
+                Type:      "profit",
+            })
+        }
+    }
+    ```
+- **遊戲控管**：
+  - 後台設置遊戲參數，遊戲端動態載入：
+    ```tsx
+    useEffect(() => {
+      fetch('/api/game/settings?game=texas')
+        .then((res) => res.json())
+        .then((data) => setGameSettings(data));
+    }, []);
+    ```
+
+### 實現建議
+- **優先級**：
+  1. **開分系統**：核心功能，優先實現儲值申請和審核，確保點數同步。
+  2. **分潤配置**：實現連動邏輯，確保代理商和總公司權限控制。
+  3. **返水規則**：最後實現，需穩定下注記錄後計算返水。
+- **開發步驟**：
+  1. 擴展資料庫結構，新增 `deposit_requests`, `profit_configs`, `rebates` 等表格。
+  2. 開發 Golang API（儲值、分潤、返水），整合 Redis 快取。
+  3. 開發 Next.js 後台介面，顯示儲值申請、分潤配置和返水記錄。
+  4. 實現定時任務（返水計算、異常檢測）。
+  5. 部署至 Docker/Kubernetes，監控性能。
+- **測試**：
+  - 模擬高並發儲值申請，測試事務一致性。
+  - 驗證分潤連動（例如代理商調整比例後，經銷商分潤同步更新）。
+  - 測試返水計算（模擬 1000 名玩家下注，檢查 VIP 和活躍加成）。
+
+### 結論
+- **新增功能實現**：
+  - **開分系統**：支援玩家、經銷商、代理商儲值，MySQL 記錄申請，Golang API 處理審核，Redis 快取狀態。
+  - **分潤配置連動**：僅代理商和總公司可調整，自動連動下級，記錄歷史供審計。
+  - **返水規則**：基於下注金額和遊戲類型，每周發放，支援 VIP 和活躍加成，防止刷返水。
+- **技術棧**：Golang（後端）、MySQL/PostgreSQL + Redis（資料庫）、Next.js（後台介面）、Docker/Kubernetes（部署）。
+- **與遊戲端整合**：WebSocket 同步儲值和下注，API 提供配置，Three.js 呈現遊戲動畫。
+- **與你興趣的連結**：
+  - 分潤和返水的概率計算類似你在交易分析（技術指標、風險評估）的經驗。
+  - Golang 的高效能和 Docker 部署延續你在 NexusERP 的背景。
+  - 異常檢測（刷返水、詐欺）與你的 AI 優化興趣契合。
+
+如果你需要特定功能的詳細程式碼（例如返水計算的完整實現）、資料庫優化細節、支付整合（例如 Stripe API）或部署配置，請提供更多要求，我可以進一步客製化方案！

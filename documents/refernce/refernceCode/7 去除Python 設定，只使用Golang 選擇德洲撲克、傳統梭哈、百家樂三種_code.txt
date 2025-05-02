@@ -1,0 +1,323 @@
+# 前端 (Three.js + Next.js - GameCanvas 基礎骨架)
+# import { useRef, useEffect, useState } from 'react';
+# import * as THREE from 'three';
+# const GameCanvas: React.FC = () => {
+#   const mountRef = useRef<HTMLDivElement>(null);
+#   const [isFullscreen, setIsFullscreen] = useState(false);
+#   useEffect(() => {
+#     const scene = new THREE.Scene();
+#     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+#     const renderer = new THREE.WebGLRenderer();
+#     renderer.setSize(window.innerWidth, window.innerHeight);
+#     mountRef.current?.appendChild(renderer.domElement);
+#     // ... (Add game-specific objects like cards, tables) ...
+#     camera.position.z = 5;
+#     const animate = () => {
+#       requestAnimationFrame(animate);
+#       // ... (Animation logic) ...
+#       renderer.render(scene, camera);
+#     };
+#     animate();
+#     const handleResize = () => {
+#       renderer.setSize(window.innerWidth, window.innerHeight);
+#       camera.aspect = window.innerWidth / window.innerHeight;
+#       camera.updateProjectionMatrix();
+#     };
+#     window.addEventListener('resize', handleResize);
+#     document.addEventListener('fullscreenchange', () => setIsFullscreen(!!document.fullscreenElement));
+#     document.addEventListener('webkitfullscreenchange', () => setIsFullscreen(!!(document as any).webkitFullscreenElement));
+#     return () => { /* cleanup listeners */ };
+#   }, []);
+#   const toggleFullscreen = () => { /* ... (request/exit fullscreen logic) ... */ };
+#   return (
+#     <div ref={mountRef} style={{ width: '100vw', height: '100vh', /* ... */ }}>
+#       <button onClick={toggleFullscreen} style={{ /* ... */ }}>
+#         {isFullscreen ? 'Exit' : 'Fullscreen'}
+#       </button>
+#       {/* Canvas is appended here */}
+#     </div>
+#   );
+# };
+# export default GameCanvas;
+
+# 前端 (Next.js - 手機 Meta 標籤)
+# // pages/_document.tsx
+# import Document, { Html, Head, Main, NextScript } from 'next/document';
+# class MyDocument extends Document {
+#   render() {
+#     return (
+#       <Html>
+#         <Head>
+#           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+#           <meta name="apple-mobile-web-app-capable" content="yes" />
+#         </Head>
+#         <body> <Main /> <NextScript /> </body>
+#       </Html>
+#     );
+#   }
+# }
+# export default MyDocument;
+
+# 前端 (R3F - 觸控交互)
+# import { Canvas } from '@react-three/fiber';
+# function PokerScene() {
+#   const handleAction = async (action: string) => {
+#     const res = await fetch(`/api/move?game=texas&action=${action}`);
+#     const data = await res.json();
+#     console.log(`AI move: ${data.action}`);
+#   };
+#   return (
+#     <Canvas>
+#       <mesh onPointerDown={() => handleAction('call')}>
+#         <planeGeometry args={[1, 1.5]} />
+#         <meshBasicMaterial color="blue" />
+#       </mesh>
+#     </Canvas>
+#   );
+# }
+
+# 前端 (R3F - 低頻渲染)
+# import { useFrame } from '@react-three/fiber';
+# let needsUpdate = true;
+# useFrame((state, delta) => {
+#   if (needsUpdate) {
+#     // card.rotation.y += delta * 0.5; // Example animation
+#     state.invalidate();
+#     needsUpdate = false;
+#   }
+# });
+
+# 前端 (Next.js - 動態載入)
+# import dynamic from 'next/dynamic';
+# const PokerScene = dynamic(() => import('../components/PokerScene'), { ssr: false });
+
+# 後端 (Golang - Gin API 路由)
+# package main
+# import "github.com/gin-gonic/gin"
+# import "math/rand"
+# import "fmt"
+# import "sync"
+# import "net/http"
+# // Define GameState struct (common or per-game)
+# type GameState struct {
+#   PlayerHand     []int
+#   CommunityCards []int
+#   Pot            int
+#   PlayerChips    int
+#   OpponentChips  int
+#   CurrentBet     int
+#   // Add fields specific to Stud (e.g., UpCards) or Baccarat
+# }
+# // Cache for AI results
+# var stateCache sync.Map
+# func main() {
+#   r := gin.Default()
+#   // REST API endpoint
+#   r.GET("/api/move", handleApiMove)
+#   // Setup WebSocket endpoint
+#   // r.GET("/ws", handleWebSocket)
+#   r.Run(":8080")
+# }
+# func handleApiMove(c *gin.Context) {
+#   game := c.Query("game")
+#   // Assume state is derived from request or session
+#   state := GameState{ /* ... populate state ... */ }
+#   var aiMove string
+#   switch game {
+#   case "texas":
+#     aiMove = computeTexasHoldemMove(state, 1000)
+#   case "stud":
+#     aiMove = computeSevenCardStudMove(state, 3)
+#   case "baccarat":
+#     aiMove = computeBaccaratMove(state)
+#   default:
+#     c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid game type"})
+#     return
+#   }
+#   c.JSON(http.StatusOK, gin.H{"action": aiMove})
+# }
+
+# 後端 (Golang - 德州撲克 MCTS 骨架)
+# func computeTexasHoldemMove(state GameState, iterations int) string {
+#   // Check cache first
+#   // Implement MCTS: Selection, Expansion, Simulation, Backpropagation
+#   // Use goroutines for parallel simulation if needed
+#   bestAction := "fold"
+#   bestScore := -1e9
+#   actions := []string{"fold", "call", "raise"} // Simplify actions for example
+#   for _, action := range actions {
+#     score := 0.0 // Use float for scores
+#     numSimulations := iterations / len(actions)
+#     for i := 0; i < numSimulations; i++ {
+#       score += float64(simulateTexasGame(state, action)) // Simulate game after taking action
+#     }
+#     avgScore := score / float64(numSimulations)
+#     if avgScore > bestScore {
+#       bestScore = avgScore
+#       bestAction = action
+#     }
+#   }
+#   // Store result in cache
+#   return bestAction
+# }
+# func simulateTexasGame(state GameState, action string) int {
+#   // Simulate a random playout from the current state after the action
+#   // Return result (e.g., 1 for win, 0 for loss)
+#   return rand.Intn(2)
+# }
+
+# 後端 (Golang - 傳統梭哈 Minimax 骨架)
+# func computeSevenCardStudMove(state GameState, depth int) string {
+#   // Determine best move using Minimax with Alpha-Beta pruning
+#   bestAction := "fold"
+#   bestScore := -1e9 // Assuming higher score is better for AI
+#   alpha := -1e9
+#   beta := 1e9
+#   actions := []string{"fold", "call", "raise"}
+#   for _, action := range actions {
+#     // Create next state after action
+#     // nextState := applyAction(state, action)
+#     // score := minimaxStud(nextState, depth-1, false, alpha, beta)
+#     score := float64(rand.Intn(100)) // Placeholder score
+#     if score > bestScore {
+#       bestScore = score
+#       bestAction = action
+#     }
+#     alpha = math.Max(alpha, bestScore)
+#     if beta <= alpha {
+#       break // Beta cut-off
+#     }
+#   }
+#   return bestAction
+# }
+# func minimaxStud(state GameState, depth int, maximizing bool, alpha, beta float64) float64 {
+#   if depth == 0 { return float64(evaluateStudHand(state)) }
+#   // ... recursive minimax logic with alpha-beta pruning ...
+#   return 0.0 // Placeholder
+# }
+# func evaluateStudHand(state GameState) int {
+#   // Evaluate the strength of the 7-card stud hand
+#   return rand.Intn(100)
+# }
+
+# 後端 (Golang - 百家樂 AI 骨架)
+# func computeBaccaratMove(state GameState) string {
+#   // Simple strategy: always bet on Banker (highest probability)
+#   // Could be extended with card counting or history analysis if desired
+#   return "banker"
+# }
+
+# 後端 (Golang - WebSocket Handler 骨架)
+# import (
+#   "github.com/gorilla/websocket"
+#   "net/http"
+#   "log"
+# )
+# var upgrader = websocket.Upgrader{
+#   ReadBufferSize:  1024,
+#   WriteBufferSize: 1024,
+#   CheckOrigin: func(r *http.Request) bool { return true }, // Allow all origins for dev
+# }
+# func handleWebSocket(c *gin.Context) {
+#   conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+#   if err != nil {
+#     log.Printf("Failed to upgrade WebSocket: %v", err)
+#     return
+#   }
+#   defer conn.Close()
+#   game := c.Query("game") // Get game type from query param
+#   for {
+#     var playerState GameState // Or a simpler message structure
+#     err := conn.ReadJSON(&playerState)
+#     if err != nil {
+#       log.Printf("WebSocket read error: %v", err)
+#       break
+#     }
+#     var aiMove string
+#     switch game {
+#     case "texas":
+#       aiMove = computeTexasHoldemMove(playerState, 1000)
+#     case "stud":
+#       aiMove = computeSevenCardStudMove(playerState, 3)
+#     case "baccarat":
+#       aiMove = computeBaccaratMove(playerState)
+#     default:
+#       aiMove = "error: invalid game"
+#     }
+#     err = conn.WriteJSON(gin.H{"action": aiMove})
+#     if err != nil {
+#       log.Printf("WebSocket write error: %v", err)
+#       break
+#     }
+#   }
+# }
+
+# 後端 (Golang - 快取使用)
+# func evaluateTexasHandWithCache(state GameState) float64 {
+#   hash := fmt.Sprintf("%v:%v", state.PlayerHand, state.CommunityCards) // Example hash
+#   if val, ok := stateCache.Load(hash); ok {
+#     return val.(float64)
+#   }
+#   value := calculateHandStrength(state) // Actual calculation
+#   stateCache.Store(hash, value)
+#   return value
+# }
+# func calculateHandStrength(state GameState) float64 {
+#   // ... expensive calculation ...
+#   return 0.0
+# }
+
+# 後端 (Golang - MCTS 並行化骨架)
+# func parallelMCTS(state GameState, iterations int, numWorkers int) string {
+#   actions := []string{"fold", "call", "raise"}
+#   results := make(chan float64, len(actions))
+#   var wg sync.WaitGroup
+#   simsPerAction := iterations / len(actions)
+#   simsPerWorker := simsPerAction / numWorkers
+
+#   for _, action := range actions {
+#     wg.Add(1)
+#     go func(act string) {
+#       defer wg.Done()
+#       actionScore := 0.0
+#       for w := 0; w < numWorkers; w++ {
+#         // Could use another level of goroutines per worker if simsPerWorker is large
+#         for i := 0; i < simsPerWorker; i++ {
+#           actionScore += float64(simulateTexasGame(state, act))
+#         }
+#       }
+#       results <- actionScore / float64(simsPerAction) // Send average score
+#     }(action)
+#   }
+
+#   go func() {
+#     wg.Wait()
+#     close(results)
+#   }()
+
+#   bestAction := "fold"
+#   bestScore := -1e9
+#   idx := 0
+#   for score := range results {
+#     if score > bestScore {
+#       bestScore = score
+#       bestAction = actions[idx]
+#     }
+#     idx++
+#   }
+#   return bestAction
+# }
+
+# 前端 (WebSocket 重連)
+# function connectWebSocket(gameType) {
+#   const ws = new WebSocket(`ws://your-backend:8080/ws?game=${gameType}`);
+#   ws.onopen = () => console.log('Connected');
+#   ws.onmessage = (event) => { /* handle message */ };
+#   ws.onerror = (error) => console.error('WS Error:', error);
+#   ws.onclose = () => {
+#     console.log('Disconnected. Reconnecting in 1s...');
+#     setTimeout(() => connectWebSocket(gameType), 1000);
+#   };
+#   return ws;
+# }
+# let websocket = connectWebSocket('texas'); // Initial connection 

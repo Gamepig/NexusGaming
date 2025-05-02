@@ -1,0 +1,359 @@
+# 初步規劃：撲克類遊戲後台玩家行為分析、AI 對弈與後台管理功能
+
+## 1. 項目背景與目標
+
+為撲克類遊戲後台（獨立於遊戲專案，基於 **Three.js + Next.js** 前端，**Golang** 後端，**MySQL** 資料庫，支援德州撲克、傳統梭哈、百家樂等變體）開發 **玩家行為分析**、**AI 判斷玩家行為**、**AI 與玩家對弈** 及 **後台管理** 功能，旨在提高運營效率、莊家勝率並提供高效的管理介面。考慮到用戶背景（對 AI 性能優化、交易分析中的概率計算有興趣，熟悉 Golang 和 Docker 部署），本規劃強調 AI 模式識別（類似交易數據分析）、概率計算（類似海龜交易策略），並確保與獨立遊戲專案的 MySQL 資料庫無縫銜接。
+
+### 核心目標
+- **玩家行為分析**：提供下注行為、勝率盈虧、參與頻率、時間分佈的分析，支援異常檢測（作弊、刷返水）和玩家分類（休閒、VIP、高風險）。
+- **AI 判斷玩家行為**：使用機器學習（Isolation Forest、K-Means）減少計算負擔，高效識別異常行為和玩家類型。
+- **AI 與玩家對弈**：開發 AI 對弈模組，參與德州撲克、梭哈、百家樂，動態調整策略以提升莊家勝率。
+- **後台管理**：提供管理介面，支援玩家數據查詢、AI 模型配置、對弈策略調整、報表生成與權限控制。
+- **MySQL 整合**：AI 從 MySQL 提取行為數據，儲存分析和對弈結果，與遊戲專案共用資料庫。
+- **與遊戲專案分離**：後台作為獨立服務，透過 REST API 或 WebSocket 交互。
+- **報表與視覺化**：提供行為分析、對弈結果和管理報表（Chart.js），支援 CSV 匯出。
+
+### 次要目標
+- 實現增量數據處理，降低 MySQL 查詢負載。
+- 部署於 Docker/Kubernetes，確保高可用性和可擴展性。
+- 契合用戶興趣：AI 對弈類似交易進出場決策，異常檢測對應概率計算，後台管理延續高效數據處理經驗。
+
+### 莊家勝率提升
+- AI 對弈模組根據玩家行為數據（下注模式、風險偏好）動態調整策略。
+- 德州撲克/梭哈：使用強化學習（MCTS/DQN）優化決策。
+- 百家樂：根據歷史數據調整賠率或模擬莊家策略，確保長期勝率優勢。
+
+---
+
+## 2. 功能範圍
+
+### 玩家行為分析
+- **指標**：
+  - 下注行為：總下注金額、平均下注金額、下注次數、遊戲偏好（德州撲克、梭哈、百家樂）。
+  - 勝率與盈虧：各遊戲勝率、淨盈虧（贏得 - 損失）。
+  - 參與頻率：遊戲次數、活躍天數、平均遊戲時間。
+  - 時間分佈：每小時下注次數（熱力圖展示）。
+- **異常檢測**：識別高頻小額下注（刷返水）、異常高勝率（>60%）、連續贏局。
+- **玩家分類**：分為休閒玩家、VIP（高下注）、高風險玩家。
+
+### AI 判斷玩家行為
+- **異常檢測**：使用 Isolation Forest 模型，檢測異常行為。
+- **玩家分類**：使用 K-Means 分群，優化返水和營銷策略。
+- **計算優化**：AI 推理取代複雜 SQL 查詢，降低 MySQL 負載。
+
+### AI 與玩家對弈
+- **德州撲克與梭哈**：
+  - AI 作為莊家或虛擬玩家，使用強化學習（MCTS 或 DQN）根據玩家行動（加注、棄牌）調整策略。
+  - 利用玩家行為數據（激進/保守下注）預測對手行動，優化勝率。
+- **百家樂**：
+  - AI 模擬莊家，根據歷史下注模式（押莊/閒偏好）調整內部賠率或決策邏輯。
+  - 使用統計模型（馬爾可夫鏈）預測牌局趨勢。
+- **莊家勝率提升**：
+  - 動態策略：根據玩家分類（VIP 保守、高風險激進）調整 AI 行動。
+  - 風險控制：限制單局最大損失，確保長期收益。
+
+### 後台管理
+- **玩家數據管理**：
+  - 查詢玩家資訊（ID、餘額、下注記錄、行為快照）。
+  - 手動標記異常玩家（支援 AI 訓練）。
+  - 調整玩家分類（例如手動指定 VIP）。
+- **AI 模型管理**：
+  - 配置異常檢測參數（例如 Isolation Forest 的 contamination）。
+  - 配置分群數量（K-Means 的 k 值）。
+  - 監控模型性能（準確率、召回率）。
+- **對弈策略管理**：
+  - 調整 AI 對弈參數（例如 MCTS 探索率、百家樂賠率偏移）。
+  - 設定風險控制規則（單局最大損失）。
+  - 查看對弈記錄（勝率、盈虧）。
+- **報表生成**：
+  - 生成行為分析報表（下注分佈、異常玩家）。
+  - 生成對弈報表（AI 勝率、莊家盈虧）。
+  - 支援篩選（時間、遊戲類型、玩家 ID）與 CSV 匯出。
+- **權限控制**：
+  - 角色分級：管理員（全權）、分析師（報表與模型管理）、運營（玩家數據查詢）。
+  - 支援多用戶登錄與操作日誌。
+
+### 報表與視覺化
+- **行為分析報表**：下注金額、勝率、異常玩家。
+- **對弈報表**：AI 勝率、莊家盈虧、策略調整記錄。
+- **管理報表**：玩家活躍度、模型性能、操作日誌。
+- **視覺化**：柱狀圖（下注分佈）、散點圖（異常玩家）、熱力圖（時間分佈）。
+- **匯出**：CSV 格式。
+
+### MySQL 整合
+- AI 從 `game_logs` 提取行為數據，儲存分析和對弈結果於 `ai_anomaly_predictions` 和 `ai_game_results`。
+- 後台管理數據（用戶角色、操作日誌）儲存於專用表格。
+
+### 與遊戲專案分離
+- 後台透過 REST API 接收遊戲日誌，支援 WebSocket 實時同步 AI 對弈行動。
+
+---
+
+## 3. 技術架構
+
+### 技術棧
+- **後端**：Golang（Gin 框架，GORM ORM），處理 API、MySQL 交互、對弈邏輯和後台管理。
+- **AI 服務**：Python（FastAPI + scikit-learn + PyTorch），實現行為分析（Isolation Forest、K-Means）和對弈（MCTS/DQN）。
+- **資料庫**：MySQL（儲存日誌、快照、AI 結果、管理數據），Redis（快取特徵和對弈狀態）。
+- **前端**：Next.js（報表與管理介面），Chart.js（視覺化）。
+- **部署**：Docker + Kubernetes，支援高並發。
+- **身份驗證**：JWT（後台用戶登錄與權限控制）。
+
+### 架構圖
+```
+[遊戲專案: Three.js + Next.js]
+        ↕ (REST API / WebSocket)
+[後台服務: Golang + Gin]
+    ↕ (GORM)          ↕ (REST API)
+[MySQL]            [AI 服務: Python + FastAPI]
+    ↕ (Redis Client)
+[Redis]
+[後台管理介面: Next.js + Chart.js]
+```
+
+---
+
+## 4. 資料庫設計 (MySQL)
+
+### 核心表格
+- **players**：玩家資訊
+  - 欄位：id (PK)、username (唯一)、balance、created_at、updated_at。
+- **game_logs**：遊戲行為記錄
+  - 欄位：id (PK)、player_id (FK)、game_type、action、amount、created_at。
+- **point_transactions**：點數交易
+  - 欄位：id (PK)、player_id (FK)、game_type、amount、type (win/loss/deposit/withdraw)、created_at。
+
+### 行為分析表格
+- **player_behavior_snapshots**：行為快照
+  - 欄位：id (PK)、player_id (FK)、period_start、period_end、game_type、total_bet、bet_count、win_rate、net_profit、active_days、avg_session_time、time_distribution (JSON)、created_at。
+- **ai_anomaly_predictions**：AI 異常檢測結果
+  - 欄位：id (PK)、player_id (FK)、is_anomaly、anomaly_score、prediction_time、features (JSON)。
+
+### 對弈結果表格
+- **ai_game_results**：AI 對弈記錄
+  - 欄位：id (PK)、game_id、player_id (FK)、game_type、ai_action、ai_win、profit、strategy_params (JSON)、created_at。
+
+### 後台管理表格
+- **admin_users**：管理員用戶
+  - 欄位：id (PK)、username (唯一)、password (加密)、role (admin/analyst/operator)、created_at、updated_at。
+- **admin_logs**：操作日誌
+  - 欄位：id (PK)、admin_id (FK)、action、details (JSON)、created_at。
+
+### 索引
+- `game_logs`：player_id、game_type、created_at。
+- `player_behavior_snapshots`：player_id、period_start。
+- `ai_game_results`：game_id、created_at。
+- `admin_logs`：admin_id、created_at。
+
+---
+
+## 5. AI 模型設計
+
+### 行為分析
+- **異常檢測**：
+  - 模型：Isolation Forest（無監督）。
+  - 特徵：總下注金額、平均下注金額、下注次數、勝率、連勝次數、時間分佈。
+  - 訓練：使用歷史 `game_logs`，標記異常玩家（每分鐘下注 > 10 次或勝率 > 60%）。
+- **玩家分類**：
+  - 模型：K-Means（3 群：休閒、VIP、高風險）。
+  - 特徵：總下注金額、活躍天數、平均遊戲時間、淨盈虧。
+  - 分群標準：
+    - 休閒：低下注（<10,000 點）、低活躍（<3 天/週）。
+    - VIP：高下注（>100,000 點）、高活躍（>5 天/週）。
+    - 高風險：高勝率（>50%）或異常下注模式。
+
+### AI 對弈
+- **德州撲克與梭哈**：
+  - 模型：蒙特卡羅樹搜索（MCTS）結合深度強化學習（DQN）。
+  - 輸入：牌局狀態（底牌、公共牌、籌碼）、玩家行動歷史、行為特徵（激進程度）。
+  - 輸出：最佳行動（加注、跟注、棄牌）。
+  - 訓練：模擬牌局（自我對弈）結合玩家行為數據微調。
+- **百家樂**：
+  - 模型：馬爾可夫鏈 + 統計模型。
+  - 輸入：歷史牌局結果（莊/閒/和）、玩家下注偏好。
+  - 輸出：調整莊家策略或預測下一局趨勢。
+  - 訓練：使用歷史牌局數據構建轉移矩陣。
+- **莊家勝率提升**：
+  - 動態策略：根據玩家分類調整 AI 激進程度。
+  - 風險控制：設置單局最大損失（10% 總籌碼）。
+  - 長期優化：記錄對弈結果，定期更新模型。
+
+### 推理服務
+- 平台：FastAPI。
+- 功能：異常檢測、玩家分類、對弈行動預測。
+- 模型儲存：`.pkl`（行為分析）、`.pt`（對弈）。
+
+---
+
+## 6. 後端設計 (Golang)
+
+### 功能模組
+- **特徵提取**：
+  - 從 `game_logs` 提取行為特徵，生成 `player_behavior_snapshots`。
+  - 支援時間範圍篩選，整合 Redis 快取。
+- **AI 行為分析**：
+  - 調用 Python AI 服務（異常檢測、分群）。
+  - 儲存結果至 `ai_anomaly_predictions`。
+  - 支援定時任務（每日異常檢測）。
+- **AI 對弈**：
+  - 接收遊戲專案的牌局狀態，調用 AI 服務生成行動。
+  - 儲存對弈結果至 `ai_game_results`。
+- **後台管理**：
+  - 玩家管理：查詢、標記、分類。
+  - AI 管理：配置模型參數、監控性能。
+  - 對弈管理：調整策略、查看記錄。
+  - 權限控制：JWT 驗證，角色分級。
+  - 操作日誌：記錄管理員行動。
+
+### API 設計
+- **行為分析**：
+  - `GET /admin/ai/player_features`：提取玩家特徵。
+  - `POST /admin/ai/detect_anomalies`：運行異常檢測。
+  - `POST /admin/ai/classify_players`：運行玩家分類。
+- **對弈**：
+  - `POST /game/play`：AI 對弈行動。
+- **後台管理**：
+  - `POST /admin/login`：管理員登錄（返回 JWT）。
+  - `GET /admin/players`：查詢玩家數據。
+  - `PATCH /admin/players/:id`：標記異常或調整分類。
+  - `GET /admin/ai/models`：查看模型配置。
+  - `PATCH /admin/ai/models`：更新模型參數。
+  - `GET /admin/ai/game_results`：查看對弈記錄。
+  - `PATCH /admin/ai/strategy`：調整對弈策略。
+  - `GET /admin/logs`：查看操作日誌。
+
+---
+
+## 7. 前端設計 (Next.js)
+
+### 功能模組
+- **行為分析報表**：
+  - 展示下注金額、勝率、異常玩家（表格、散點圖）。
+  - 支援篩選（時間、遊戲類型、玩家 ID）。
+- **對弈報表**：
+  - 展示 AI 勝率、莊家盈虧、策略參數（表格、柱狀圖）。
+- **後台管理介面**：
+  - 玩家管理：查詢、編輯、標記異常。
+  - AI 管理：配置模型參數、查看性能（準確率、召回率）。
+  - 對弈管理：調整策略（MCTS 探索率）、查看記錄。
+  - 用戶管理：新增/刪除管理員、設置角色。
+  - 操作日誌：展示管理員行動歷史。
+- **視覺化**：
+  - 柱狀圖：下注金額分佈。
+  - 散點圖：異常玩家（下注次數 vs 勝率）。
+  - 熱力圖：時間分佈。
+- **匯出**：CSV 下載（行為分析、對弈結果）。
+
+### 頁面結構
+- **儀表板**：概覽玩家活躍度、異常數量、AI 勝率。
+- **玩家管理**：玩家列表、詳情、標記功能。
+- **行為分析**：報表與視覺化。
+- **AI 管理**：模型配置與性能監控。
+- **對弈管理**：策略調整與結果查詢。
+- **用戶管理**：管理員設置與日誌查詢。
+
+---
+
+## 8. 與遊戲專案分離
+
+### 交互方式
+- **REST API**：
+  - 遊戲專案傳送日誌：`POST /game/logs`（玩家行動）。
+  - AI 對弈：`POST /game/play`（牌局狀態，返回 AI 行動）。
+  - 查詢行為分析：`GET /game/player_behavior`（玩家快照）。
+- **WebSocket**（可選）：
+  - 實時同步遊戲日誌和 AI 對弈行動。
+
+### 資料庫共用
+- 遊戲專案與後台共用 MySQL 表格（`players`、`game_logs`、`point_transactions`）。
+- 後台獨立表格（`player_behavior_snapshots`、`ai_anomaly_predictions`、`ai_game_results`、`admin_users`、`admin_logs`）。
+
+---
+
+## 9. 開發步驟與時間估計
+
+| **階段** | **任務** | **時間估計** | **負責模組** |
+|----------|----------|--------------|--------------|
+| **1. 資料庫設計** | 初始化 MySQL 表格（`game_logs`, `player_behavior_snapshots`, `ai_anomaly_predictions`, `ai_game_results`, `admin_users`, `admin_logs`），設置索引 | 1 天 | MySQL |
+| **2. 特徵提取** | 開發 Golang API 提取玩家特徵，整合 Redis 快取 | 2 天 | Golang, Redis |
+| **3. AI 行為分析** | 訓練 Isolation Forest（異常檢測）和 K-Means（分群），部署 FastAPI 服務 | 3 天 | Python, scikit-learn |
+| **4. AI 對弈模型** | 訓練 MCTS/DQN（德州撲克、梭哈）和馬爾可夫鏈（百家樂），部署推理服務 | 5 天 | Python, PyTorch |
+| **5. 後端整合** | 實現行為分析、對弈和管理 API，儲存結果至 MySQL，設置 cron 任務 | 4 天 | Golang, MySQL |
+| **6. 前端開發** | 開發 Next.js 報表與管理介面，整合 Chart.js（柱狀圖、散點圖、熱力圖） | 4 天 | Next.js, Chart.js |
+| **7. 權限控制** | 實現 JWT 登錄、角色分級、操作日誌 | 2 天 | Golang, Next.js |
+| **8. 測試與優化** | 模擬數據測試（10,000 筆日誌，1,000 局對弈），優化 MySQL 和 AI 速度 | 3 天 | 全棧 |
+| **9. 部署** | 使用 Docker/Kubernetes 部署 Golang 和 Python 服務，設置監控（Prometheus + Grafana） | 2 天 | Docker, Kubernetes |
+| **總計** | | **26 天** | |
+
+---
+
+## 10. 風險與緩解措施
+
+- **風險 1：AI 對弈勝率不足**
+  - 緩解：增加模擬牌局數據，結合玩家行為微調模型，定期更新策略參數。
+- **風險 2：MySQL 查詢性能瓶頸**
+  - 緩解：分表（`game_logs_YYYYMM`）、索引優化、Redis 快取。
+- **風險 3：後台管理權限漏洞**
+  - 緩解：嚴格 JWT 驗證，記錄操作日誌，定期審計。
+- **風險 4：遊戲專案與後台 API 不相容**
+  - 緩解：定義 Swagger 文件，模擬遊戲日誌和對弈測試。
+- **風險 5：AI 服務延遲**
+  - 緩解：使用輕量模型（MCTS 優化探索深度），Kubernetes 負載均衡。
+
+---
+
+## 11. 效能與擴展性
+
+- **計算優化**：
+  - 行為分析：AI 推理 O(n)，取代 SQL O(n*log(n))。
+  - 對弈：MCTS 每次行動 < 100ms（優化探索深度）。
+  - 快照機制：`player_behavior_snapshots` 支援增量處理。
+- **MySQL 優化**：
+  - 分表：`game_logs` 按月分表。
+  - 批量插入：使用 GORM 的 `CreateInBatches`。
+- **AI 服務**：
+  - Docker 容器化，Kubernetes 擴展。
+  - 推理速度：1,000 名玩家行為分析 < 1 秒，單局對弈 < 100ms。
+- **後台管理**：
+  - 高效查詢：索引和快取支援快速玩家數據檢索。
+  - 安全：JWT 與角色分級確保權限控制。
+- **監控**：
+  - Prometheus + Grafana 監控 API 延遲、MySQL 性能、AI 勝率。
+
+---
+
+## 12. 記憶整合
+
+用戶的興趣（**AI 優化**、**概率計算**、**交易分析**）與本規劃高度契合：
+- **模式識別**：AI 對弈（預測玩家行動）類似交易分析中的 K 線模式識別（2025-03-23）。
+- **概率計算**：MCTS 和馬爾可夫鏈的概率決策對應海龜交易策略中的參數優化（2025-03-13）。
+- **數據處理**：MySQL 特徵提取類似 Binance API 處理 K 線和技術指標（2025-03-31）。
+- **AI 設計**：AI 對弈模組延續自訂 AI 的興趣，特別是動態策略優化（2025-03-02）。
+- **後台管理**：高效數據查詢與權限控制延續 NexusERP 的管理經驗（2025-04-11）。
+- **部署**：Docker/Kubernetes 部署契合技術背景（2025-04-11）。
+
+---
+
+## 13. 結論
+
+- **功能實現**：
+  - 行為分析：下注、勝率、異常檢測、玩家分類。
+  - AI 對弈：德州撲克/梭哈（MCTS/DQN），百家樂（馬爾可夫鏈），動態調整策略提升莊家勝率。
+  - 後台管理：玩家數據查詢、AI 模型配置、對弈策略調整、權限控制。
+  - MySQL 整合：從 `game_logs` 提取數據，儲存結果於 `ai_anomaly_predictions` 和 `ai_game_results`。
+  - 與遊戲專案分離：REST API 和 WebSocket 交互。
+- **技術棧**：
+  - 後端：Golang（Gin、GORM）。
+  - AI 服務：Python（FastAPI、scikit-learn、PyTorch）。
+  - 資料庫：MySQL、Redis。
+  - 前端：Next.js、Chart.js。
+  - 部署：Docker、Kubernetes。
+  - 身份驗證：JWT。
+- **時間估計**：26 天（含設計、開發、測試、部署）。
+- **與用戶興趣的連結**：
+  - AI 對弈類似交易進出場決策（2025-04-16）。
+  - 概率模型對應交易風險評估（2025-03-13）。
+  - 後台管理與數據處理延續 NexusERP 經驗（2025-04-11）。
+  - Docker 部署契合技術背景（2025-04-11）。
+
+如需更詳細的規範（例如 Swagger 文件、MCTS 設計細節）、特定功能細化或時間表調整，請提供進一步要求，我將優化規劃！

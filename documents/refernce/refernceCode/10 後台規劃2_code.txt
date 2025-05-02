@@ -1,0 +1,137 @@
+# --- 開分系統 (儲值) ---
+# ALTER TABLE players ADD COLUMN pending_balance DECIMAL(15, 2) DEFAULT 0.0;
+# ALTER TABLE agents ADD COLUMN balance DECIMAL(15, 2) DEFAULT 0.0;
+# ALTER TABLE agents ADD COLUMN pending_balance DECIMAL(15, 2) DEFAULT 0.0;
+# CREATE TABLE deposit_requests (...);
+
+# // Golang - 提交儲值申請
+# r.POST("/admin/deposit", func(c *gin.Context) { /* ... Bind input, Create DepositRequest ... */ })
+
+# // Golang - 審核儲值
+# r.POST("/admin/deposit/:id/review", func(c *gin.Context) {
+#   /* ... Bind input, Find DepositRequest ... */
+#   db.Transaction(func(tx *gorm.DB) error {
+#     if input.Status == "approved" {
+#       if deposit.UserType == "player" {
+#         tx.Model(&Player{}).Where("id = ?", deposit.UserID).Update("balance", gorm.Expr("balance + ?", deposit.Amount))
+#       } else {
+#         tx.Model(&Agent{}).Where("id = ?", deposit.UserID).Update("balance", gorm.Expr("balance + ?", deposit.Amount))
+#       }
+#     }
+#     tx.Model(&deposit).Updates(map[string]interface{}{"status": input.Status, "updated_at": time.Now()})
+#     return nil
+#   })
+#   /* ... Return response ... */
+# })
+
+# // Golang - Redis 快取
+# func getPendingDeposits(ctx context.Context) ([]DepositRequest, error) { /* ... Check Redis, Fetch DB, Cache ... */ }
+
+# // Next.js - 顯示儲值申請
+# // pages/admin/deposits.tsx
+# function Deposits() {
+#   /* ... Fetch requests, Render table, Review buttons ... */
+# }
+
+# --- 分潤配置連動 ---
+# CREATE TABLE profit_configs (...);
+# CREATE TABLE profit_config_logs (...);
+
+# // Golang - 更新分潤配置
+# r.POST("/admin/profit/config", func(c *gin.Context) {
+#   /* ... Bind input, Auth check ... */
+#   db.Transaction(func(tx *gorm.DB) error {
+#     /* ... Find or Create config, Save new rate, Log change ... */
+#     return nil
+#   })
+#   /* ... Return response ... */
+# })
+
+# // Golang - 查詢分潤配置
+# r.GET("/admin/profit/configs", func(c *gin.Context) { /* ... Find configs, Return JSON ... */ })
+
+# // Golang - 連動邏輯 (範例)
+# func cascadeUpdateProfit(agentID uint64, newRate float64) {
+#   /* ... Find child dealers, Update their profit_configs ... */
+# }
+
+# // Golang - Redis 快取
+# func getProfitConfigs(ctx context.Context) ([]ProfitConfig, error) { /* ... Check Redis, Fetch DB, Cache ... */ }
+
+# // Golang - JWT 權限中間件
+# func authProfitConfig() gin.HandlerFunc { /* ... Validate JWT, Check agent level ... */ }
+
+# // Next.js - 管理分潤配置
+# // pages/admin/profit-config.tsx
+# function ProfitConfig() {
+#   /* ... Fetch configs, Render table with inputs, Update button ... */
+# }
+
+# --- 返水規則 ---
+# CREATE TABLE rebates (...);
+
+# // Golang - 定時計算返水
+# func calculateRebates() {
+#   /* ... Query game_logs for bets in period ... */
+#   for _, bet := range bets {
+#     /* ... Calculate rate with bonuses (VIP, active) ... */
+#     if rebateAmount >= 1 {
+#       db.Transaction(func(tx *gorm.DB) error {
+#         tx.Create(&Rebate{ /* ... data ... */ })
+#         tx.Model(&Player{}).Where("id = ?", bet.PlayerID).Update("balance", gorm.Expr("balance + ?", rebateAmount))
+#         return nil
+#       })
+#     }
+#   }
+# }
+
+# // Golang - Cron Job
+# func startCronJobs() {
+#   c := cron.New()
+#   c.AddFunc("0 0 * * 1", calculateRebates)
+#   c.Start()
+# }
+
+# // Golang - 查詢返水記錄
+# r.GET("/admin/rebates", func(c *gin.Context) { /* ... Find rebates, Return JSON ... */ })
+
+# // Golang - Redis 快取 (範例)
+# func cacheBetTotals(ctx context.Context, bets []struct{ /* ... */ }) { /* ... Cache results ... */ }
+
+# // Golang - 防刷單檢測 (範例)
+# func detectRebateAbuse() {
+#   /* ... Query game_logs for high-frequency betting, Log suspicious players ... */
+# }
+
+# // Next.js - 顯示返水記錄
+# // pages/admin/rebates.tsx
+# function Rebates() {
+#   /* ... Fetch rebates, Render table ... */
+# }
+
+# --- 效能與整合 ---
+
+# // Golang - Goroutine 批量處理 (範例)
+# func batchProcessDeposits(deposits []DepositRequest) {
+#   var wg sync.WaitGroup
+#   for _, deposit := range deposits {
+#     wg.Add(1)
+#     go func(d DepositRequest) { /* ... Process deposit ... */ }(deposit)
+#   }
+#   wg.Wait()
+# }
+
+# // Golang - Redis 分佈式鎖 (範例)
+# func lockBalanceUpdate(ctx context.Context, userID uint64) bool {
+#   /* ... Use Redis SetNX for locking ... */
+# }
+
+# // Golang - 與遊戲端整合: 記錄下注並計算分潤 (範例)
+# func recordBet(state GameState) {
+#   db.Create(&GameLog{ /* ... */ })
+#   configs := getProfitConfigs(context.Background())
+#   for _, config := range configs {
+#     amount := state.CurrentBet * config.ProfitRate
+#     db.Create(&AgentTransaction{ /* ... */ })
+#   }
+# } 

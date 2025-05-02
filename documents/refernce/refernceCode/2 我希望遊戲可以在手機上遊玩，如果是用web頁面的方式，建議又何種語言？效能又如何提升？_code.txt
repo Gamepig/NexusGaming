@@ -1,0 +1,117 @@
+# 前端 (PixiJS)
+# import * as PIXI from 'pixi.js';
+# const app = new PIXI.Application({ width: 800, height: 600 });
+# document.body.appendChild(app.view);
+# const card = PIXI.Sprite.from('card.png');
+# app.stage.addChild(card);
+# card.x = 100;
+# card.y = 100;
+
+# 後端 (Python + FastAPI + Cython)
+# ai.pyx
+# cimport cython
+# @cython.cdivision(True)
+# def compute_best_move(int player_hp, int opponent_hp, int iterations):
+#     cdef int move = 0  # 模擬 MCTS
+#     return move
+
+# main.py
+# from fastapi import FastAPI
+# import ai
+# app = FastAPI()
+# @app.get("/ai/move")
+# async def get_move(player_hp: int, opponent_hp: int):
+#     return {"move": ai.compute_best_move(player_hp, opponent_hp, 1000)}
+
+# AI (WebAssembly)
+# 編譯 Cython 到 WASM (使用 Emscripten)
+# emcc ai.c -o ai.wasm -s EXPORTED_FUNCTIONS="['_compute_best_move']"
+
+# 前端 JS 呼叫 WASM
+# async function callWasmAI() {
+#   const wasmModule = await WebAssembly.instantiateStreaming(fetch('ai.wasm'));
+#   const move = wasmModule.instance.exports.compute_best_move(30, 30, 1000);
+#   console.log(`WASM AI move: ${move}`);
+# }
+
+# 前端渲染優化 (PixiJS Sprite Sheet)
+# const sheet = PIXI.Spritesheet.from('cards.json');
+# const card = new PIXI.Sprite(sheet.textures['card1.png']);
+
+# 前端觸控優化 (PixiJS)
+# card.interactive = true; // 啟用互動
+# card.on('pointerdown', () => playCard(card));
+
+# 前端幀率控制 (PixiJS)
+# app.ticker.maxFPS = 30;
+
+# AI 計算優化 (Cython MCTS 核心)
+# mcts.pyx
+# cimport cython
+# from libc.stdlib cimport rand
+# cdef struct GameState:
+#     int player_hp
+#     int opponent_hp
+# @cython.boundscheck(False)
+# cdef int simulate_game(GameState state, int iterations):
+#     cdef int i, score = 0
+#     for i in range(iterations):
+#         score += rand() % 2
+#     return score
+
+# AI 計算優化 (Cython 快取)
+# mcts.pyx
+# cdef dict state_cache = {}
+# cdef double evaluate_state(GameState state):
+#     cdef long state_hash = hash((state.player_hp, state.opponent_hp))
+#     if state_hash in state_cache:
+#         return state_cache[state_hash]
+#     cdef double value = <double>(state.player_hp - state.opponent_hp)
+#     state_cache[state_hash] = value
+#     return value
+
+# 後端異步計算 (FastAPI)
+# import asyncio
+# @app.get("/ai/move")
+# async def get_move(player_hp: int, opponent_hp: int):
+#     # 將同步的 Cython 函數放入線程池執行
+#     return await asyncio.to_thread(ai.compute_best_move, player_hp, opponent_hp, 1000)
+
+# 後端 WebSocket (FastAPI)
+# from fastapi import WebSocket
+# @app.websocket("/ws")
+# async def websocket_endpoint(websocket: WebSocket):
+#     await websocket.accept()
+#     while True:
+#         data = await websocket.receive_json()
+#         move = ai.compute_best_move(data["state"], 1000) # 假設 ai.compute_best_move 是同步的
+#         await websocket.send_json({"move": move})
+
+# 手機適配 (響應式)
+# app.renderer.resize(window.innerWidth, window.innerHeight);
+
+# 電池優化 (requestAnimationFrame)
+# function gameLoop() {
+#     updateGame();
+#     requestAnimationFrame(gameLoop);
+# }
+# requestAnimationFrame(gameLoop); // 啟動遊戲循環
+
+# 記憶體管理 (PixiJS)
+# app.stage.removeChild(oldCard);
+# oldCard.destroy(); // 銷毀物件及其紋理
+
+# 進階 AI 優化 (ONNX 量化)
+# pip install onnx
+# # 使用 ONNX 工具或庫進行模型量化
+
+# 範例流程 - 前端 (PixiJS)
+# async function handleCardClick() {
+#   const response = await fetch('/ai/move?player_hp=30&opponent_hp=30');
+#   const { move } = await response.json();
+#   console.log(`AI move: ${move}`);
+# }
+# card.on('pointerdown', handleCardClick);
+
+# 範例流程 - 後端 (FastAPI + Cython)
+# # (見上方後端範例) 

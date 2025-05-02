@@ -1,0 +1,122 @@
+# --- DB 設計 ---
+# CREATE TABLE player_behavior_snapshots (
+#   ... total_bet, bet_count, win_rate, net_profit, active_days, avg_session_time ...
+#   time_distribution JSON,
+#   ...
+# );
+
+# --- Golang 後端 ---
+
+# // API: 查詢/計算行為報表
+# r.GET("/admin/reports/player_behavior", func(c *gin.Context) {
+#   /* ... Query snapshots or call calculatePlayerBehavior ... */
+# })
+
+# // API: 匯出 CSV
+# r.GET("/admin/reports/player_behavior/export", func(c *gin.Context) {
+#   /* ... Fetch snapshots, Format as CSV using encoding/csv ... */
+# })
+
+# // API: 查詢異常行為
+# r.GET("/admin/reports/abnormal_behavior", func(c *gin.Context) {
+#   issues := detectAbnormalBehavior(start, end)
+#   c.JSON(200, issues)
+# })
+
+# // 計算邏輯
+# func calculatePlayerBehavior(start, end, gameType, playerID string) []PlayerBehaviorSnapshot {
+#   /* ... Raw SQL to aggregate game_logs (total bet, wins, profit, active days) ... */
+#   /* ... Calculate Avg Session Time (e.g., group by time gaps) ... */
+#   /* ... Calculate Time Distribution (group by hour) ... */
+#   /* ... Construct and return snapshots ... */
+# }
+
+# // 異常檢測
+# func detectAbnormalBehavior(start, end string) []struct { /* ... */ } {
+#   /* ... Raw SQL to detect high freq low bet ... */
+#   /* ... Raw SQL to detect high win rate ... */
+#   /* ... Return issues ... */
+# }
+
+# // 定時生成快照 (Cron)
+# func generateBehaviorSnapshots() {
+#   /* ... Call calculatePlayerBehavior for the period ... */
+#   /* ... Save snapshots to DB ... */
+# }
+# // c.AddFunc("0 0 * * 1", generateBehaviorSnapshots)
+
+# // Redis 快取
+# func getPlayerBehavior(ctx context.Context, start, end, gameType, playerID string) ([]PlayerBehaviorSnapshot, error) {
+#   /* ... Check Redis, Fetch/Calculate if miss, Cache result ... */
+# }
+
+# // 分頁查詢
+# r.GET("/admin/reports/player_behavior_paginated", func(c *gin.Context) {
+#   /* ... Use GORM Limit/Offset on snapshots table ... */
+# })
+
+# // 並行處理
+# func parallelCalculateBehavior(start, end, gameType string, playerIDs []uint64) []PlayerBehaviorSnapshot {
+#   /* ... Use WaitGroup and channels to run calculatePlayerBehavior concurrently ... */
+# }
+
+# // 權限控制
+# func authBehaviorReport() gin.HandlerFunc { /* ... Check JWT user level ... */ }
+
+# // 批量創建快照 (Goroutine)
+# func batchCalculateBehavior(snapshots []PlayerBehaviorSnapshot) {
+#     /* ... Use WaitGroup to create snapshots concurrently ... */
+# }
+
+# // Redis 分佈式鎖 (範例)
+# func lockBehaviorUpdate(ctx context.Context, playerID uint64) bool {
+#     /* ... Use Redis SetNX for locking ... */
+# }
+
+# --- 前端整合 (Next.js) ---
+
+# // 行為報表頁面
+# // pages/admin/player-behavior.tsx
+# import { Bar, Line } from 'react-chartjs-2';
+# function PlayerBehavior() {
+#   /* ... Fetch snapshots ... */
+#   /* ... Prepare chartData for mixed Bar/Line chart ... */
+#   /* ... Render chart and table ... */
+#   /* ... Render TimeDistributionHeatmap component for each player ... */
+# }
+
+# // 時間分佈熱力圖組件
+# // components/TimeDistributionHeatmap.tsx
+# function TimeDistributionHeatmap({ snapshot }) {
+#   /* ... Parse time_distribution JSON ... */
+#   /* ... Calculate color based on count ... */
+#   /* ... Render divs with background color representing heatmap ... */
+# }
+
+# // 異常行為頁面
+# // pages/admin/abnormal-behavior.tsx
+# function AbnormalBehavior() {
+#   /* ... Fetch abnormal issues ... */
+#   /* ... Render table of issues ... */
+# }
+
+# // 嵌入報表總覽
+# // pages/admin/reports.tsx
+# import PlayerBehavior from './player-behavior';
+# function Reports() {
+#   return (
+#     <div>
+#       {/* ... */} 
+#       <PlayerBehavior />
+#       {/* ... */}
+#     </div>
+#   );
+# }
+
+# --- 遊戲端整合 ---
+
+# // Golang - 遊戲日誌記錄 (WebSocket handler)
+# func handleGameLog(conn *websocket.Conn) {
+#   /* ... Read log data from WebSocket ... */
+#   /* ... Save GameLog ... */
+# } 

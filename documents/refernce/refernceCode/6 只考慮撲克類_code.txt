@@ -1,0 +1,195 @@
+# 後端 Golang (德州撲克 MCTS 骨架)
+# package main
+# type GameState struct { /* ... fields for cards, pot, chips ... */ }
+# func computeBestMove(state GameState, iterations int) string {
+#     // Implement MCTS logic here, considering probabilities and opponent modeling
+#     // Return "call", "raise", "fold"
+#     return "call"
+# }
+
+# 前端 TypeScript (觸控下注按鈕 - R3F)
+# // components/PokerTable.tsx
+# import { useThree } from '@react-three/fiber';
+# import * as THREE from 'three';
+# // Assume ws is a WebSocket instance passed as prop or context
+# function BetButton({ position, action, amount, ws }) {
+#   const handleClick = () => {
+#     if (ws && ws.readyState === WebSocket.OPEN) {
+#       ws.send(JSON.stringify({ action, amount }));
+#     }
+#   };
+#   return (
+#     <mesh position={position} onClick={handleClick} onPointerDown={handleClick}>
+#       <planeGeometry args={[1, 0.5]} />
+#       <meshBasicMaterial color="green" />
+#       {/* Add text label for the button */}
+#     </mesh>
+#   );
+# }
+
+# 後端 Golang (奧馬哈牌型計算 - 並行骨架)
+# package poker
+# import "sync"
+# func evaluateOmahaHandParallel(holeCards [][]int, communityCards []int) float64 {
+#   // Requires efficient combination generation and evaluation
+#   // Use goroutines to parallelize evaluation of possible hand combinations
+#   var bestStrength float64
+#   var wg sync.WaitGroup
+#   // ... logic to generate combinations and launch goroutines ...
+#   wg.Wait()
+#   return bestStrength
+# }
+
+# AI Cython (奧馬哈牌型評估 - 骨架)
+# poker.pyx
+# cimport cython
+# from libc.stdint cimport int32_t
+# @cython.boundscheck(False)
+# @cython.wraparound(False)
+# @cython.cdivision(True)
+# def evaluate_omaha_strength(int32_t[:] hole_cards, int32_t[:] community_cards):
+#     cdef double strength = 0.0
+#     # Combine 2 from hole_cards and 3 from community_cards
+#     # Evaluate strength of the best 5-card hand
+#     # ... implementation needed ...
+#     return strength
+
+# 後端 Golang (七張梭哈 Minimax 骨架)
+# package poker
+# func minimaxStud(state StudGameState, depth int, maximizingPlayer bool) float64 {
+#   if depth == 0 { return evaluateStudHand(state.hand) }
+#   // ... generate possible moves (bet, fold) ...
+#   if maximizingPlayer {
+#     // ... find max value ...
+#   } else {
+#     // ... find min value ...
+#   }
+#   return 0.0 // Placeholder
+# }
+# func evaluateStudHand(cards []int) float64 { return 0.5 }
+
+# AI Cython (五張抽牌換牌策略 - 骨架)
+# draw_poker.pyx
+# cimport cython
+# from libc.stdint cimport int32_t
+# def compute_draw_strategy(int32_t[:] hand, int max_draws):
+#     # Analyze hand, decide which cards to discard
+#     # Return indices of cards to discard
+#     discard_indices = []
+#     # ... implementation needed ...
+#     return discard_indices
+
+# AI Cython (拉米牌型評估 - 骨架)
+# rummy.pyx
+# cimport cython
+# from libc.stdint cimport int32_t
+# @cython.boundscheck(False)
+# def evaluate_rummy_hand(int32_t[:] hand):
+#     cdef int sets = 0
+#     cdef int runs = 0
+#     # Logic to find sets (e.g., 3 of a kind) and runs (e.g., 3 consecutive cards of same suit)
+#     # ... implementation needed ...
+#     score = sets * 10 + runs * 5 # Example scoring
+#     return score
+
+# 後端 Golang (加勒比海決策骨架)
+# package poker
+# func computeCaribbeanMove(playerHand []int, dealerUpCard int) string {
+#   playerStrength := evaluatePokerHand(playerHand)
+#   // Basic strategy: bet if hand is pair or better, consider dealer upcard
+#   if playerStrength > 1.0 { // Assuming 1.0 is pair strength threshold
+#     return "bet"
+#   }
+#   return "fold"
+# }
+# func evaluatePokerHand(hand []int) float64 { return 0.0 } // Placeholder
+
+# 前端 TypeScript (全螢幕切換)
+# // components/PokerCanvas.tsx or similar
+# const toggleFullscreen = () => {
+#   const elem = mountRef.current;
+#   if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+#     if (elem?.requestFullscreen) {
+#       elem.requestFullscreen().catch(err => console.error(err));
+#     } else if ((elem as any)?.webkitRequestFullscreen) {
+#       (elem as any).webkitRequestFullscreen(); // Safari
+#     }
+#   } else {
+#     if (document.exitFullscreen) {
+#       document.exitFullscreen();
+#     } else if ((document as any).webkitExitFullscreen) {
+#       (document as any).webkitExitFullscreen(); // Safari
+#     }
+#   }
+# };
+
+# 前端 TypeScript (R3F 低頻渲染)
+# import { useFrame } from '@react-three/fiber';
+# let needsRender = true; // Trigger initial render
+# function PokerScene() {
+#   useFrame((state, delta) => {
+#     // Only render if game state changed or animation needed
+#     if (needsRender) {
+#       state.invalidate(); // Request a render
+#       needsRender = false; // Reset flag until next state change
+#     }
+#   });
+#   // ... scene setup ...
+#   // Call needsRender = true when state changes
+#   return <>{/* scene content */}</>;
+# }
+
+# 前端 TypeScript (R3F 觸控示例)
+# // components/CardMesh.tsx
+# function CardMesh({ cardId, onClick }) {
+#   return (
+#     <mesh onClick={() => onClick(cardId)} onPointerDown={() => onClick(cardId)}>
+#       <planeGeometry args={[1, 1.5]} />
+#       {/* Load card texture based on cardId */}
+#       <meshBasicMaterial map={/* cardTexture */} />
+#     </mesh>
+#   );
+# }
+
+# 後端 Golang (gRPC 整合 - Client Call)
+# func callPythonAI(state GameState) string {
+#   // Assume conn is established gRPC client connection
+#   client := pb.NewAIServiceClient(conn)
+#   // Convert GameState to protobuf request format
+#   req := &pb.MoveRequest{ /* ... */ }
+#   resp, err := client.ComputeMove(context.Background(), req)
+#   if err != nil {
+#     log.Printf("gRPC call failed: %v", err)
+#     return "fold" // Default action on error
+#   }
+#   return resp.Action
+# }
+
+# 後端 Golang (WebSocket Handler)
+# func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+#   conn, err := upgrader.Upgrade(w, r, nil)
+#   if err != nil { log.Println(err); return }
+#   defer conn.Close()
+#   for {
+#     var playerAction map[string]interface{}
+#     err := conn.ReadJSON(&playerAction)
+#     if err != nil { /* handle error, break */ }
+
+#     // Process playerAction, update game state
+#     currentState := getCurrentGameState() // Get updated state
+
+#     // Get AI move
+#     aiMove := computeBestMove(currentState, 1000)
+
+#     // Send AI move back to client
+#     err = conn.WriteJSON(map[string]string{"action": aiMove})
+#     if err != nil { /* handle error, break */ }
+#   }
+# }
+
+# 手機 Meta Tags (pages/_document.tsx)
+# <Head>
+#   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+#   <meta name="apple-mobile-web-app-capable" content="yes" />
+#   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+# </Head> 

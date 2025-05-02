@@ -1,0 +1,228 @@
+# CSS 全螢幕 (GameCanvas.tsx)
+# import { useRef, useEffect } from 'react';
+# const GameCanvas: React.FC = () => {
+#   const mountRef = useRef<HTMLDivElement>(null);
+#   useEffect(() => {
+#     // ... Three.js 初始化 ...
+#     const handleResize = () => {
+#       renderer.setSize(window.innerWidth, window.innerHeight);
+#       camera.aspect = window.innerWidth / window.innerHeight;
+#       camera.updateProjectionMatrix();
+#     };
+#     window.addEventListener('resize', handleResize);
+#     return () => window.removeEventListener('resize', handleResize);
+#   }, []);
+#   return (
+#     <div
+#       ref={mountRef}
+#       style={{
+#         width: '100vw',
+#         height: '100vh',
+#         position: 'fixed',
+#         top: 0,
+#         left: 0,
+#         margin: 0,
+#         overflow: 'hidden',
+#       }}
+#     />
+#   );
+# };
+# export default GameCanvas;
+
+# 全局 CSS (styles/globals.css)
+# html, body {
+#   margin: 0;
+#   padding: 0;
+#   width: 100%;
+#   height: 100%;
+#   overflow: hidden;
+# }
+
+# Next.js 頁面 (pages/index.tsx)
+# import GameCanvas from '../components/GameCanvas';
+# export default function Home() {
+#   return <GameCanvas />;
+# }
+
+# 手機 meta 標籤 (pages/_document.tsx)
+# import Document, { Html, Head, Main, NextScript } from 'next/document';
+# class MyDocument extends Document {
+#   render() {
+#     return (
+#       <Html>
+#         <Head>
+#           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+#           {/* PWA meta tags for iOS Safari */}
+#           <meta name="apple-mobile-web-app-capable" content="yes" />
+#           <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+#         </Head>
+#         <body>
+#           <Main />
+#           <NextScript />
+#         </body>
+#       </Html>
+#     );
+#   }
+# }
+# export default MyDocument;
+
+# Fullscreen API (GameCanvas.tsx)
+# import { useState } from 'react';
+# const GameCanvas: React.FC = () => {
+#   const mountRef = useRef<HTMLDivElement>(null);
+#   const [isFullscreen, setIsFullscreen] = useState(false);
+
+#   useEffect(() => {
+#     // ... Three.js setup ...
+#     const handleFullscreenChange = () => {
+#       setIsFullscreen(!!document.fullscreenElement || !!(document as any).webkitFullscreenElement);
+#       // Resize renderer on fullscreen change
+#       if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
+#         renderer.setSize(screen.width, screen.height);
+#         camera.aspect = screen.width / screen.height;
+#       } else {
+#         renderer.setSize(window.innerWidth, window.innerHeight);
+#         camera.aspect = window.innerWidth / window.innerHeight;
+#       }
+#       camera.updateProjectionMatrix();
+#     };
+#     document.addEventListener('fullscreenchange', handleFullscreenChange);
+#     document.addEventListener('webkitfullscreenchange', handleFullscreenChange); // Safari
+#     return () => {
+#       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+#       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+#     };
+#   }, [/* dependencies: renderer, camera */]);
+
+#   const requestFullscreen = (element: HTMLElement) => {
+#     if (element.requestFullscreen) element.requestFullscreen();
+#     else if ((element as any).webkitRequestFullscreen) (element as any).webkitRequestFullscreen(); // Safari
+#   };
+
+#   const exitFullscreen = () => {
+#     if (document.exitFullscreen) document.exitFullscreen();
+#     else if ((document as any).webkitExitFullscreen) (document as any).webkitExitFullscreen(); // Safari
+#   };
+
+#   const toggleFullscreen = () => {
+#     if (!isFullscreen) {
+#       mountRef.current && requestFullscreen(mountRef.current);
+#     } else {
+#       exitFullscreen();
+#     }
+#   };
+
+#   return (
+#     <div ref={mountRef} /* style */ >
+#       <button onClick={toggleFullscreen} style={{ position: 'absolute', zIndex: 10 }}>
+#         {isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+#       </button>
+#       {/* Canvas will be appended here by Three.js */}
+#     </div>
+#   );
+# };
+
+# 鎖定方向 (GameCanvas.tsx)
+# useEffect(() => {
+#   const lockOrientation = async () => {
+#     try {
+#       if (screen.orientation && screen.orientation.lock) {
+#         await screen.orientation.lock('landscape');
+#       }
+#     } catch (err) {
+#       console.error(`Failed to lock orientation: ${err}`);
+#     }
+#   };
+#   lockOrientation();
+#   // Optional: Unlock on component unmount
+#   // return () => { screen.orientation?.unlock(); };
+# }, []);
+
+# CSS 安全區域
+# .game-ui {
+#   padding-top: env(safe-area-inset-top);
+#   padding-bottom: env(safe-area-inset-bottom);
+#   padding-left: env(safe-area-inset-left);
+#   padding-right: env(safe-area-inset-right);
+# }
+
+# CSS 固定比例
+# .canvas-container {
+#   aspect-ratio: 16 / 9;
+#   max-width: 100vw;
+#   max-height: 100vh;
+#   margin: auto; /* Center */
+#   position: relative; /* Ensure canvas stays within */
+# }
+# .canvas-container canvas {
+#   display: block;
+#   width: 100%;
+#   height: 100%;
+# }
+
+# Three.js 紋理優化
+# const texture = new THREE.TextureLoader().load('card.webp');
+# texture.minFilter = THREE.LinearFilter; // Improves quality slightly at cost
+# texture.magFilter = THREE.LinearFilter;
+# // Consider anisotropic filtering for better quality at angles
+# // texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+# Three.js 幀率控制 (Alternative using clock)
+# const clock = new THREE.Clock();
+# const animate = () => {
+#   requestAnimationFrame(animate);
+#   const delta = clock.getDelta();
+#   // Update logic based on delta
+#   renderer.render(scene, camera); // Render every frame, let browser handle vsync
+# };
+# // Or limit updates within animate:
+# const targetFrameTime = 1 / 30; // 30 FPS
+# let accumulatedTime = 0;
+# const animateLimited = () => {
+#   requestAnimationFrame(animateLimited);
+#   accumulatedTime += clock.getDelta();
+#   if (accumulatedTime >= targetFrameTime) {
+#     // Update game logic here
+#     renderer.render(scene, camera);
+#     accumulatedTime -= targetFrameTime;
+#   }
+# };
+
+# 後端 Go AI (Placeholder)
+# type GameState struct { PlayerHP, OpponentHP int }
+# func computeBestMove(state GameState, iterations int) int {
+#   // Placeholder for MCTS or other AI logic
+#   return 1
+# }
+
+# 後端 gRPC Call (Placeholder)
+# func callPythonAI(playerHP, opponentHP int) int {
+#   // ... gRPC client setup ...
+#   // resp, err := client.ComputeMove(...)
+#   // return int(resp.Move)
+#   return 1 // Placeholder
+# }
+
+# WebSocket Client (JS/TS)
+# const ws = new WebSocket('ws://your-backend:8080/ws');
+# ws.onopen = () => console.log('WebSocket Connected');
+# ws.onmessage = (event) => {
+#   const { move } = JSON.parse(event.data);
+#   console.log(`AI received move: ${move}`);
+#   // Update game state based on AI move
+# };
+# ws.onerror = (error) => console.error('WebSocket Error:', error);
+# ws.onclose = () => {
+#   console.log('WebSocket Disconnected, attempting reconnect...');
+#   setTimeout(connectWebSocket, 1000); // Reconnect logic
+# };
+# function connectWebSocket() {
+#   // ... logic to create and assign to ws ...
+# }
+# // Example send on user action (e.g., clicking a card in react-three-fiber)
+# function handleCardClick() {
+#   if (ws.readyState === WebSocket.OPEN) {
+#     const currentState = { player_hp: 30, opponent_hp: 30 }; // Get current state
+#     ws.send(JSON.stringify(currentState));
+#   }
+# } 

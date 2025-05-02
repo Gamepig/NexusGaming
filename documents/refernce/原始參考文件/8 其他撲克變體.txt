@@ -1,0 +1,599 @@
+感謝你進一步聚焦於撲克類博弈卡牌遊戲，並要求探討**德州撲克（Texas Hold'em）**、**傳統梭哈（Seven-Card Stud）**和**百家樂（Baccarat）**之外的其他撲克變體，適合與 AI 對弈。你指定的技術棧為 **Three.js + Next.js** 前端和 **Golang** 後端，支援手機網頁全螢幕體驗，AI 邏輯完全使用 Golang 實現（無 Python/Cython）。考慮到你對 AI 性能優化（如交易分析中的概率計算）和手機網頁遊戲的興趣，我將列出六款適合與 AI 對弈的撲克變體，分析它們的 AI 適用性、策略深度，並提供與你的技術棧的實現方案，確保全螢幕體驗和高效能。
+
+### 適合與 AI 對弈的六款撲克變體
+以下六款撲克變體具有明確規則、策略深度和有限行動空間，適合 AI 對弈，且能在手機網頁環境中實現。它們與德州撲克、傳統梭哈和百家樂有所區別，但保留撲克類遊戲的核心元素（牌型、賭注、決策）。每款遊戲將考慮你的技術棧和對概率計算的興趣（例如你在交易分析中關注的技術指標和風險評估）。
+
+#### 1. 奧馬哈撲克（Omaha Hold'em）
+- **遊戲概述**：
+  - 類似德州撲克，玩家獲發四張底牌，結合五張公共牌組成最佳五張牌型，但必須且僅使用兩張底牌和三張公共牌。涉及多輪下注（翻牌前、翻牌、轉牌、河牌）。
+  - 單人模式：玩家與 AI 在無限注或底池限注模式下對戰。
+- **AI 適用性**：
+  - **狀態空間**：比德州撲克更大（四張底牌增加牌型組合），但仍有限。不完美資訊（對手底牌未知）要求 AI 計算概率。
+  - **算法**：蒙地卡羅樹搜尋（MCTS）最適合，處理高組合數和不確定性。啟發式（如牌型強度）可加速計算。
+  - **挑戰**：AI 需精確評估底牌組合，避免過高估計弱牌。
+- **策略深度**：高，策略複雜度高於德州撲克，因底牌組合多，需更精細的概率分析。
+- **技術契合**：
+  - **前端**：Three.js 渲染四張底牌和公共牌動畫，Next.js 管理底牌選擇 UI。
+    ```tsx
+    // components/OmahaTable.tsx
+    <mesh onClick={() => ws.send(JSON.stringify({ action: "raise", amount: 100 }))}>
+      <planeGeometry args={[1, 1.5]} />
+      <meshBasicMaterial map={cardTexture} />
+    </mesh>
+    ```
+  - **後端**：Golang 使用 goroutines 並行計算牌型概率：
+    ```go
+    func computeOmahaMove(state GameState, iterations int) string {
+        bestAction := "fold"
+        bestScore := -1e9
+        actions := []string{"fold", "call", "raise"}
+        for _, action := range actions {
+            score := 0
+            for i := 0; i < iterations; i++ {
+                score += simulateOmahaGame(state, action)
+            }
+            if score > bestScore {
+                bestScore = score
+                bestAction = action
+            }
+        }
+        return bestAction
+    }
+
+    func simulateOmahaGame(state GameState, action string) int {
+        return rand.Intn(100) // 模擬遊戲結果
+    }
+    ```
+  - **手機**：全螢幕展示牌桌，觸控選擇底牌組合，WebSocket 確保實時下注。
+- **為何適合**：奧馬哈撲克的複雜牌型計算與你在交易分析中關注的概率計算契合，AI 挑戰性高，適合手機網頁的沉浸式體驗。
+
+#### 2. 五張抽牌撲克（Five-Card Draw）
+- **遊戲概述**：
+  - 每位玩家獲發五張底牌，可在抽牌階段交換 0-5 張牌，組成最佳牌型。涉及一到兩輪下注（固定限注或無限注）。
+  - 單人模式：玩家與 AI 在簡單賭注模式下對戰。
+- **AI 適用性**：
+  - **狀態空間**：較小（無公共牌，行動為抽牌和下注）。不完美資訊（對手手牌和換牌意圖未知）。
+  - **算法**：MCTS 或簡單強化學習，計算換牌後的牌型概率。
+  - **挑戰**：AI 需模擬換牌決策的長期收益，推測對手策略。
+- **策略深度**：中等，策略聚焦於換牌決策和下注時機，適合快速對弈。
+- **技術契合**：
+  - **前端**：Three.js 實現抽牌動畫（卡牌滑入/滑出），Next.js 管理換牌選擇 UI。
+    ```tsx
+    <mesh onPointerDown={() => ws.send(JSON.stringify({ action: "draw", cards: [0, 1] }))}>
+      <planeGeometry args={[1, 1.5]} />
+      <meshBasicMaterial map={cardTexture} />
+    </mesh>
+    ```
+  - **後端**：Golang 計算換牌期望值：
+    ```go
+    func computeDrawMove(state GameState, iterations int) string {
+        bestAction := "fold"
+        bestScore := -1e9
+        actions := []string{"fold", "call", "draw_1", "draw_2"}
+        for _, action := range actions {
+            score := simulateDrawGame(state, action)
+            if score > bestScore {
+                bestScore = score
+                bestAction = action
+            }
+        }
+        return bestAction
+    }
+
+    func simulateDrawGame(state GameState, action string) int {
+        return rand.Intn(100)
+    }
+    ```
+  - **手機**：全螢幕簡化 UI，觸控拖動選擇換牌。
+- **為何適合**：規則簡單，AI 計算負擔低，適合手機網頁快速開發，與你的全螢幕需求契合。
+
+#### 3. 加勒比海撲克（Caribbean Stud Poker）
+- **遊戲概述**：
+  - 玩家與莊家（AI）對戰，各獲發五張牌，玩家根據底牌和莊家一張明牌決定下注或棄牌。最終比牌型大小。
+  - 單人模式：玩家與 AI 莊家直接對抗。
+- **AI 適用性**：
+  - **狀態空間**：小（固定五張牌，行動為下注或棄牌）。部分資訊可見（莊家明牌）。
+  - **算法**：簡單概率計算或期望值分析，無需複雜搜尋。
+  - **挑戰**：AI 需模擬莊家策略，確保公平發牌。
+- **策略深度**：低，策略依賴明牌分析和概率，適合輕量 AI。
+- **技術契合**：
+  - **前端**：Three.js 渲染莊家和玩家牌桌，Next.js 管理下注按鈕。
+    ```tsx
+    <mesh onClick={() => fetch('/api/move?game=caribbean&action=bet')}>
+      <planeGeometry args={[1, 1.5]} />
+      <meshBasicMaterial map={cardTexture} />
+    </mesh>
+    ```
+  - **後端**：Golang 計算勝率：
+    ```go
+    func computeCaribbeanMove(state GameState) string {
+        // 基於明牌計算期望值
+        winProb := 0.6 // 示例概率
+        if winProb > 0.5 {
+            return "bet"
+        }
+        return "fold"
+    }
+    ```
+  - **手機**：全螢幕簡化比牌動畫，觸控選擇下注。
+- **為何適合**：規則簡單，AI 計算輕量，適合手機網頁休閒玩家，視覺效果吸引人。
+
+#### 4. 三張撲克（Three-Card Poker）
+- **遊戲概述**：
+  - 玩家與莊家（AI）各獲發三張牌，玩家決定下注（Ante/Play）或棄牌，比較牌型（高牌、對子、同花順等）。
+  - 單人模式：玩家與 AI 莊家對戰，可加入 Pair Plus 側注。
+- **AI 適用性**：
+  - **狀態空間**：小（三張牌，行動為下注或棄牌）。完美資訊（玩家可見自己牌）。
+  - **算法**：期望值計算，基於牌型概率決定行動。
+  - **挑戰**：AI 需平衡 Ante 和 Play 下注，模擬莊家資格規則（Queen High）。
+- **策略深度**：低至中等，策略簡單但涉及概率分析。
+- **技術契合**：
+  - **前端**：Three.js 渲染快速發牌動畫，Next.js 管理下注選項。
+    ```tsx
+    <mesh onClick={() => fetch('/api/move?game=threecard&action=play')}>
+      <planeGeometry args={[1, 1.5]} />
+      <meshBasicMaterial map={cardTexture} />
+    </mesh>
+    ```
+  - **後端**：Golang 計算牌型期望值：
+    ```go
+    func computeThreeCardMove(state GameState) string {
+        // 計算牌型強度
+        if evaluateThreeCardHand(state.PlayerHand) > 0.5 {
+            return "play"
+        }
+        return "fold"
+    }
+
+    func evaluateThreeCardHand(hand []int) float64 {
+        return 0.6 // 示例強度
+    }
+    ```
+  - **手機**：全螢幕展示簡潔牌桌，觸控操作下注。
+- **為何適合**：快速對弈和簡單規則適合手機網頁，AI 實現成本低，與你的概率計算興趣契合。
+
+#### 5. 拉米撲克（Rummy Poker，基於 Gin Rummy 的撲克變體）
+- **遊戲概述**：
+  - 玩家獲發若干底牌（通常 7-10 張），目標是組成順子或同花牌型，透過抽牌和棄牌調整手牌。涉及下注和計分。
+  - 單人模式：玩家與 AI 競爭最高分數或最佳牌型。
+- **AI 適用性**：
+  - **狀態空間**：中等（牌庫有限，行動為抽牌、棄牌、下注）。部分不完美資訊（對手手牌）。
+  - **算法**：MCTS 或動態規劃，分析手牌優化路徑。
+  - **挑戰**：AI 需平衡短期棄牌和長期牌型目標。
+- **策略深度**：中等，策略涉及牌型規劃和對手推測。
+- **技術契合**：
+  - **前端**：Three.js 渲染手牌排列和棄牌動畫，Next.js 管理計分。
+    ```tsx
+    <mesh onPointerDown={() => ws.send(JSON.stringify({ action: "discard", card: 1 }))}>
+      <planeGeometry args={[1, 1.5]} />
+      <meshBasicMaterial map={cardTexture} />
+    </mesh>
+    ```
+  - **後端**：Golang 實現牌型匹配：
+    ```go
+    func computeRummyMove(state GameState, iterations int) string {
+        bestAction := "discard_1"
+        bestScore := -1e9
+        actions := []string{"discard_1", "discard_2", "draw"}
+        for _, action := range actions {
+            score := simulateRummyGame(state, action)
+            if score > bestScore {
+                bestScore = score
+                bestAction = action
+            }
+        }
+        return bestAction
+    }
+
+    func simulateRummyGame(state GameState, action string) int {
+        return rand.Intn(100)
+    }
+    ```
+  - **手機**：全螢幕展示手牌和牌堆，觸控拖動棄牌。
+- **為何適合**：策略性適中，AI 可快速計算，適合手機網頁輕量體驗。
+
+#### 6. 派高撲克（Pai Gow Poker）
+- **遊戲概述**：
+  - 玩家與莊家（AI）各獲發七張牌，需分成一手五張牌（高牌）和一手兩張牌（低牌），兩手均需擊敗莊家對應牌型。
+  - 單人模式：玩家與 AI 莊家對戰，涉及下注和分牌決策。
+- **AI 適用性**：
+  - **狀態空間**：中等（七張牌，行動為分牌和下注）。完美資訊（玩家可見自己牌）。
+  - **算法**：啟發式搜索或 MCTS，優化分牌策略。
+  - **挑戰**：AI 需計算最佳分牌組合，平衡高低牌強度。
+- **策略深度**：中等，策略聚焦於分牌優化和概率分析。
+- **技術契合**：
+  - **前端**：Three.js 渲染高低牌排列，Next.js 管理分牌 UI。
+    ```tsx
+    <mesh onClick={() => fetch('/api/move?game=paigow&action=split')}>
+      <planeGeometry args={[1, 1.5]} />
+      <meshBasicMaterial map={cardTexture} />
+    </mesh>
+    ```
+  - **後端**：Golang 計算分牌期望值：
+    ```go
+    func computePaiGowMove(state GameState) string {
+        // 計算最佳分牌
+        highHand, lowHand := splitPaiGowHand(state.PlayerHand)
+        return fmt.Sprintf("split:%v:%v", highHand, lowHand)
+    }
+
+    func splitPaiGowHand(hand []int) ([]int, []int) {
+        return []int{1, 2, 3, 4, 5}, []int{6, 7} // 示例分牌
+    }
+    ```
+  - **手機**：全螢幕展示分牌過程，觸控拖動調整牌組。
+- **為何適合**：分牌策略提供獨特挑戰，AI 計算適中，適合手機網頁的視覺和操作需求。
+
+### 技術實現與效能優化
+以下針對你的技術棧提供實現方案，重點在於 Golang AI 邏輯、全螢幕體驗和手機網頁效能。
+
+#### 前端（Three.js + Next.js）
+- **全螢幕實現**：
+  - 使用 CSS（`100vw`/`100vh`）和 Fullscreen API 確保畫布填滿手機螢幕：
+    ```tsx
+    // components/GameCanvas.tsx
+    import { useRef, useEffect, useState } from 'react';
+    import * as THREE from 'three';
+
+    const GameCanvas: React.FC = () => {
+      const mountRef = useRef<HTMLDivElement>(null);
+      const [isFullscreen, setIsFullscreen] = useState(false);
+
+      useEffect(() => {
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        mountRef.current?.appendChild(renderer.domElement);
+
+        const geometry = new THREE.PlaneGeometry(1, 1.5);
+        const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const card = new THREE.Mesh(geometry, material);
+        scene.add(card);
+        camera.position.z = 5;
+
+        const animate = () => {
+          requestAnimationFrame(animate);
+          card.rotation.y += 0.01;
+          renderer.render(scene, camera);
+        };
+        animate();
+
+        const handleResize = () => {
+          renderer.setSize(window.innerWidth, window.innerHeight);
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+        };
+        window.addEventListener('resize', handleResize);
+
+        document.addEventListener('fullscreenchange', () => {
+          setIsFullscreen(!!document.fullscreenElement);
+        });
+
+        return () => {
+          window.removeEventListener('resize', handleResize);
+          document.removeEventListener('fullscreenchange', () => {});
+        };
+      }, []);
+
+      const toggleFullscreen = () => {
+        if (!isFullscreen) {
+          mountRef.current?.requestFullscreen();
+        } else {
+          document.exitFullscreen();
+        }
+      };
+
+      return (
+        <div
+          ref={mountRef}
+          style={{
+            width: '100vw',
+            height: '100vh',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            margin: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <button
+            onClick={toggleFullscreen}
+            style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}
+          >
+            {isFullscreen ? '退出全螢幕' : '進入全螢幕'}
+          </button>
+        </div>
+      );
+    };
+    export default GameCanvas;
+    ```
+  - **手機適配**：
+    - 添加 meta 標籤支援 iOS Safari 和 Android Chrome：
+      ```tsx
+      // pages/_document.tsx
+      import Document, { Html, Head, Main, NextScript } from 'next/document';
+
+      class MyDocument extends Document {
+        render() {
+          return (
+            <Html>
+              <Head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+                <meta name="apple-mobile-web-app-capable" content="yes" />
+              </Head>
+              <body>
+                <Main />
+                <NextScript />
+              </body>
+            </Html>
+          );
+        }
+      }
+      export default MyDocument;
+      ```
+
+- **渲染優化**：
+  - 使用低多邊形卡牌（`PlaneGeometry`），壓縮貼圖（WebP，256x256）。
+  - 限制 30 FPS，降低手機 GPU 負擔：
+    ```tsx
+    useFrame((state, delta) => {
+      if (needsUpdate) {
+        card.rotation.y += delta * 0.5;
+      }
+    });
+    ```
+  - 動態載入（Next.js）：
+    ```tsx
+    import dynamic from 'next/dynamic';
+    const GameScene = dynamic(() => import('../components/GameScene'), { ssr: false });
+    ```
+
+#### 後端（Golang）
+- **AI 邏輯**：
+  - 統一 API 處理六款遊戲的 AI 計算：
+    ```go
+    package main
+
+    import (
+        "github.com/gin-gonic/gin"
+        "math/rand"
+    )
+
+    type GameState struct {
+        PlayerHand, CommunityCards []int
+        Pot, PlayerChips, OpponentChips int
+        CurrentBet int
+    }
+
+    func main() {
+        r := gin.Default()
+        r.GET("/api/move", func(c *gin.Context) {
+            game := c.Query("game")
+            state := GameState{
+                PlayerHand:     []int{1, 2},
+                CommunityCards: []int{3, 4, 5},
+                Pot:            100,
+                PlayerChips:    1000,
+                OpponentChips:  1000,
+                CurrentBet:     50,
+            }
+            var aiMove string
+            switch game {
+            case "omaha":
+                aiMove = computeOmahaMove(state, 1000)
+            case "draw":
+                aiMove = computeDrawMove(state, 1000)
+            case "caribbean":
+                aiMove = computeCaribbeanMove(state)
+            case "threecard":
+                aiMove = computeThreeCardMove(state)
+            case "rummy":
+                aiMove = computeRummyMove(state, 1000)
+            case "paigow":
+                aiMove = computePaiGowMove(state)
+            }
+            c.JSON(200, gin.H{"action": aiMove})
+        })
+        r.Run(":8080")
+    }
+    ```
+  - **WebSocket 實時對戰**：
+    ```go
+    import (
+        "github.com/gorilla/websocket"
+        "net/http"
+    )
+
+    var upgrader = websocket.Upgrader{}
+
+    func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+        conn, err := upgrader.Upgrade(w, r, nil)
+        if err != nil {
+            return
+        }
+        for {
+            var state GameState
+            err := conn.ReadJSON(&state)
+            if err != nil {
+                break
+            }
+            game := r.URL.Query().Get("game")
+            var move string
+            switch game {
+            case "omaha":
+                move = computeOmahaMove(state, 1000)
+            case "draw":
+                move = computeDrawMove(state, 1000)
+            case "caribbean":
+                move = computeCaribbeanMove(state)
+            case "threecard":
+                move = computeThreeCardMove(state)
+            case "rummy":
+                move = computeRummyMove(state, 1000)
+            case "paigow":
+                move = computePaiGowMove(state)
+            }
+            conn.WriteJSON(map[string]string{"action": move})
+        }
+    }
+    ```
+
+- **快取優化**：
+  - 使用 `sync.Map` 快取牌型評估結果：
+    ```go
+    var stateCache sync.Map
+
+    func evaluateHand(state GameState) float64 {
+        hash := fmt.Sprintf("%v:%v", state.PlayerHand, state.CommunityCards)
+        if val, ok := stateCache.Load(hash); ok {
+            return val.(float64)
+        }
+        value := float64(len(state.CommunityCards)) // 示例評估
+        stateCache.Store(hash, value)
+        return value
+    }
+    ```
+
+- **並行計算**：
+  - 使用 goroutines 加速 MCTS（例如奧馬哈、抽牌撲克）：
+    ```go
+    func parallelMCTS(state GameState, iterations int, actions []string) string {
+        var wg sync.WaitGroup
+        scores := make(chan struct{ action string; score int }, len(actions))
+        for _, action := range actions {
+            wg.Add(1)
+            go func(act string) {
+                defer wg.Done()
+                score := simulateGame(state, act)
+                scores <- struct{ action string; score int }{act, score}
+            }(action)
+        }
+        wg.Wait()
+        close(scores)
+        bestAction := actions[0]
+        bestScore := -1e9
+        for result := range scores {
+            if result.score > bestScore {
+                bestScore = result.score
+                bestAction = result.action
+            }
+        }
+        return bestAction
+    }
+
+    func simulateGame(state GameState, action string) int {
+        return rand.Intn(100)
+    }
+    ```
+
+#### 手機優化
+- **全螢幕**：Fullscreen API 隱藏瀏覽器 UI，支援 iOS Safari 和 Android Chrome。
+- **觸控**：`react-three-fiber` 處理下注和選牌：
+  ```tsx
+  <mesh onPointerDown={() => ws.send(JSON.stringify({ action: "raise", amount: 100 }))}>
+    <planeGeometry args={[1, 1.5]} />
+    <meshBasicMaterial map={cardTexture} />
+  </mesh>
+  ```
+- **網路**：WebSocket 重連機制：
+  ```tsx
+  function connectWebSocket(game: string) {
+    const ws = new WebSocket(`ws://your-backend:8080/ws?game=${game}`);
+    ws.onclose = () => setTimeout(() => connectWebSocket(game), 1000);
+    return ws;
+  }
+  ```
+- **電池**：減少 Three.js 渲染頻率，僅在行動時更新：
+  ```tsx
+  useFrame(() => {
+    if (needsUpdate) {
+      card.rotation.y += 0.01;
+    }
+  });
+  ```
+
+### 遊戲選擇與實現建議
+- **推薦首選**：**奧馬哈撲克**，策略深度高，與德州撲克相似但更複雜，適合你的概率計算興趣，AI 挑戰性強。
+- **次選**：**五張抽牌撲克**或**加勒比海撲克**，規則簡單，AI 計算輕量，適合手機網頁快速開發。
+- **進階挑戰**：**派高撲克**，分牌策略獨特，AI 設計有趣，適合展示 Three.js 的動畫能力。
+- **其他考慮**：**三張撲克**和**拉米撲克**適合休閒玩家，實現成本低，適合快速原型。
+
+### 範例流程
+1. **前端**（Next.js + Three.js）：
+   ```tsx
+   // pages/index.tsx
+   import { Canvas } from '@react-three/fiber';
+
+   export default function Home() {
+     return (
+       <Canvas>
+         <mesh
+           onClick={async () => {
+             const res = await fetch('/api/move?game=omaha&action=call');
+             const { action } = await res.json();
+             console.log(`AI move: ${action}`);
+           }}
+         >
+           <planeGeometry args={[1, 1.5]} />
+           <meshBasicMaterial color="red" />
+         </mesh>
+       </Canvas>
+     );
+   }
+   ```
+2. **後端**（Golang）：
+   ```go
+   // main.go
+   package main
+
+   import (
+       "github.com/gin-gonic/gin"
+   )
+
+   func main() {
+       r := gin.Default()
+       r.GET("/api/move", func(c *gin.Context) {
+           game := c.Query("game")
+           state := GameState{
+               PlayerHand:     []int{1, 2, 3, 4}, // 例如奧馬哈
+               CommunityCards: []int{5, 6, 7},
+               Pot:            100,
+               PlayerChips:    1000,
+               OpponentChips:  1000,
+               CurrentBet:     50,
+           }
+           var aiMove string
+           switch game {
+           case "omaha":
+               aiMove = computeOmahaMove(state, 1000)
+           case "draw":
+               aiMove = computeDrawMove(state, 1000)
+           case "caribbean":
+               aiMove = computeCaribbeanMove(state)
+           case "threecard":
+               aiMove = computeThreeCardMove(state)
+           case "rummy":
+               aiMove = computeRummyMove(state, 1000)
+           case "paigow":
+               ai  aiMove = computePaiGowMove(state)
+           }
+           c.JSON(200, gin.H{"action": aiMove})
+       })
+       r.Run(":8080")
+   }
+   ```
+
+### 結論
+- **撲克變體適用性**：
+  - **奧馬哈撲克**：高策略深度，適合複雜 AI，吸引進階玩家。
+  - **五張抽牌撲克**和**加勒比海撲克**：簡單快速，適合休閒玩家。
+  - **三張撲克**和**拉米撲克**：輕量 AI，適合快速對弈。
+  - **派高撲克**：獨特分牌策略，增加遊戲趣味性。
+- **技術棧實現**：
+  - **前端**：Three.js 渲染卡牌動畫，Next.js 管理 UI，全螢幕模式提升沉浸感。
+  - **後端**：Golang 高效實現 AI（MCTS、期望值計算），WebSocket 支援實時對弈。
+  - **優化**：goroutines 並行計算、快取狀態、Three.js 低功耗渲染。
+- **與你興趣的連結**：這些遊戲的概率計算和風險評估與你在交易分析（例如技術指標、K線圖）中的經驗契合，Golang 的高效能滿足你的性能需求。
+
+如果你有偏好的撲克變體（例如想專注奧馬哈撲克）、特定功能（例如詐唬策略、動畫效果）或手機優化需求（例如特定設備），請提供更多細節，我可以提供更精確的程式碼或架構建議！

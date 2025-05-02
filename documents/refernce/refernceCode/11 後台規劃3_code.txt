@@ -1,0 +1,115 @@
+# --- 報表功能 ---
+# CREATE TABLE report_snapshots (... data JSON ...);
+
+# // Golang - 生成玩家行為報表 API
+# r.GET("/admin/reports/player", func(c *gin.Context) {
+#   /* ... Raw SQL query to aggregate data from players/game_logs ... */
+#   /* ... Save snapshot to report_snapshots (JSON) ... */
+#   c.JSON(200, stats)
+# })
+
+# // Golang - 生成財務報表 API
+# r.GET("/admin/reports/financial", func(c *gin.Context) {
+#   /* ... Raw SQL query to aggregate data from point_transactions/rebates ... */
+#   c.JSON(200, stats)
+# })
+
+# // Golang - 匯出報表 API (CSV)
+# r.GET("/admin/reports/export", func(c *gin.Context) {
+#   /* ... Fetch ReportSnapshot, Format data as CSV, Set headers ... */
+#   c.String(200, csvData)
+# })
+
+# // Golang - 定時生成報表快照 (Cron)
+# func generateDailyReports() {
+#   /* ... Query game_logs for daily game stats ... */
+#   /* ... Save snapshot to report_snapshots ... */
+# }
+# // c.AddFunc("0 0 * * *", generateDailyReports)
+
+# // Golang - Redis 快取報表
+# func getPlayerReport(ctx context.Context, start, end string) ([]PlayerStat, error) {
+#   /* ... Check Redis, Fetch DB if miss, Cache result ... */
+# }
+
+# // Golang - 分頁查詢
+# r.GET("/admin/reports/player_paginated", func(c *gin.Context) {
+#   /* ... Use GORM Limit/Offset ... */
+# })
+
+# // Golang - 報表權限中間件
+# func authReportAccess() gin.HandlerFunc { /* ... Check JWT user level ... */ }
+
+# // Next.js - 顯示報表與圖表
+# // pages/admin/reports.tsx
+# import { Bar } from 'react-chartjs-2';
+# function Reports() {
+#   /* ... Fetch data, Prepare chartData, Render Bar chart and table ... */
+# }
+
+# --- 遊戲賠率、機率控管 ---
+# CREATE TABLE game_odds (... rake_rate, banker_odds, player_odds, tie_odds, rtp ...);
+# ALTER TABLE game_logs ADD COLUMN odds_data JSON;
+
+# // Golang - 設置賠率 API
+# r.POST("/admin/odds", func(c *gin.Context) {
+#   /* ... Bind input, Save to game_odds ... */
+# })
+
+# // Golang - 監控機率分佈 (Cron)
+# func monitorProbability() {
+#   /* ... Query game_logs for actual win rates ... */
+#   /* ... Compare with expected rates, Log anomalies if deviation > threshold ... */
+# }
+# // c.AddFunc("@hourly", monitorProbability)
+
+# // Golang - 動態調整賠率
+# func adjustOdds(gameType string, currentRTP float64) {
+#   /* ... Fetch current odds, Adjust rake/odds based on RTP deviation ... */
+#   /* ... Save updated odds ... */
+# }
+
+# // Golang - 安全洗牌 (crypto/rand)
+# import "crypto/rand"
+# func shuffleDeck() []int {
+#   /* ... Use crypto/rand to shuffle ... */
+# }
+
+# // Golang - 提供隨機牌庫 API
+# r.GET("/api/game/deck", func(c *gin.Context) {
+#   deck := shuffleDeck()
+#   c.JSON(200, deck)
+# })
+
+# // Golang - Redis 快取賠率
+# func getGameOdds(ctx context.Context, gameType string) (GameOdds, error) {
+#   /* ... Check Redis, Fetch DB if miss, Cache result ... */
+# }
+
+# // Golang - 記錄異常至 Elasticsearch
+# import "github.com/olivere/elastic/v7"
+# func logAnomaly(gameType string, actual, expected float64) {
+#   /* ... Index anomaly data to Elasticsearch ... */
+# }
+
+# // Golang - 賠率修改權限中間件
+# func authOddsControl() gin.HandlerFunc { /* ... Check JWT user ID (e.g., == 1 for admin) ... */ }
+
+# // Next.js - 管理賠率
+# // pages/admin/odds.tsx
+# function OddsControl() {
+#   /* ... Fetch odds, Render table with inputs for editing, Save button ... */
+# }
+
+# --- 整合與監控 ---
+
+# // Golang - 遊戲日誌記錄 (WebSocket handler)
+# func handleGameLog(conn *websocket.Conn) {
+#   /* ... Read log data from WebSocket ... */
+#   /* ... Save GameLog with odds_data (JSON) ... */
+# }
+
+# // Golang - Prometheus 監控中間件
+# func prometheusMiddleware() gin.HandlerFunc {
+#   /* ... Measure request duration, Record histogram metric ... */
+# } 

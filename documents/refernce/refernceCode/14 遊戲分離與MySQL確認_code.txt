@@ -1,0 +1,115 @@
+# --- MySQL DB 設計 ---
+# CREATE TABLE players (...);
+# CREATE TABLE game_logs (...);
+# CREATE TABLE point_transactions (...);
+# CREATE TABLE player_behavior_snapshots (...);
+# CREATE TABLE ai_anomaly_predictions (... anomaly_score DECIMAL(5,4), ...);
+# CREATE INDEX idx_game_logs_player_id ON game_logs(player_id, created_at);
+# CREATE INDEX idx_snapshots_player_id ON player_behavior_snapshots(player_id, period_start);
+
+# --- Golang 後端 ---
+
+# // 特徵提取 (MySQL)
+# func extractPlayerFeatures(start, end string) ([]PlayerFeature, error) {
+#   /* ... Raw SQL for MySQL to aggregate game_logs, calculate features including ConsecutiveWins ... */
+# }
+
+# // AI 推理調用 (處理 Score)
+# func callAIPrediction(features []PlayerFeature) ([]struct{ IsAnomaly bool; Score float64 }, error) {
+#   /* ... POST to Python service ... */
+#   /* ... Decode JSON response with is_anomaly and score ... */
+# }
+
+# // API: 執行異常檢測並儲存
+# r.POST("/admin/ai/detect_anomalies", func(c *gin.Context) {
+#   features, _ := extractPlayerFeatures(start, end)
+#   predictions, _ := callAIPrediction(features)
+#   for i, f := range features {
+#     featureJSON, _ := json.Marshal(f)
+#     db.Create(&AIAnomalyPrediction{ /* ..., IsAnomaly: predictions[i].IsAnomaly, AnomalyScore: predictions[i].Score, ... */ })
+#   }
+#   /* ... */
+# })
+
+# // 定時任務 (Cron)
+# func runAIDetection() {
+#   /* ... Extract features, Call AI prediction, Save results with score ... */
+# }
+# // c.AddFunc("0 0 * * *", runAIDetection)
+
+# // API: 接收遊戲日誌 (來自獨立遊戲專案)
+# r.POST("/game/logs", func(c *gin.Context) {
+#   /* ... Bind log data, Create GameLog in MySQL ... */
+# })
+
+# // API: 提供行為快照給遊戲專案
+# r.GET("/game/player_behavior", func(c *gin.Context) {
+#   /* ... Query player_behavior_snapshots from MySQL ... */
+# })
+
+# // MySQL 批量插入
+# // db.CreateInBatches(snapshots, 100)
+
+# // Redis 快取特徵
+# func cachePlayerFeatures(ctx context.Context, features []PlayerFeature) { /* ... */ }
+
+# // Prometheus 監控
+# func prometheusMiddleware() gin.HandlerFunc { /* ... */ }
+
+# --- Python AI 服務 (FastAPI) ---
+
+# from fastapi import FastAPI, BaseModel
+# import joblib
+# import pandas as pd
+
+# app = FastAPI()
+# model = joblib.load("isolation_forest.pkl")
+
+# class FeatureInput(BaseModel):
+#     features: list
+
+# @app.post("/predict_anomaly")
+# async def predict_anomaly(input: FeatureInput):
+#   df = pd.DataFrame(input.features)
+#   # Ensure columns match training
+#   feature_cols = ['total_bet', 'avg_bet', 'bet_count', 'win_rate', 'consecutive_wins'] 
+#   df_features = df[feature_cols] 
+#   scores = model.decision_function(df_features)
+#   predictions = model.predict(df_features)
+#   return {
+#       "predictions": [
+#           {"is_anomaly": pred == -1, "score": score}
+#           for pred, score in zip(predictions, scores)
+#       ]
+#   }
+
+# --- Python 訓練腳本 ---
+# from sklearn.ensemble import IsolationForest
+# import pandas as pd
+# import joblib
+# # Assuming data exported from MySQL
+# data = pd.read_csv("player_features.csv") 
+# feature_cols = ['total_bet', 'avg_bet', 'bet_count', 'win_rate', 'consecutive_wins']
+# X = data[feature_cols]
+# model = IsolationForest(contamination=0.05, random_state=42)
+# model.fit(X)
+# joblib.dump(model, "isolation_forest.pkl")
+
+# --- Python Dockerfile ---
+# FROM python:3.9
+# WORKDIR /app
+# COPY requirements.txt .
+# RUN pip install -r requirements.txt
+# COPY . .
+# CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# --- Next.js 前端 ---
+
+# // AI 異常檢測頁面
+# // pages/admin/ai-anomalies.tsx
+# import { Scatter } from 'react-chartjs-2';
+# function AIAnomalies() {
+#   /* ... Fetch predictions (including score) from /api/admin/ai/predictions ... */
+#   /* ... Prepare chartData using features from prediction.features JSON ... */
+#   /* ... Render Scatter chart and table showing score ... */
+# } 

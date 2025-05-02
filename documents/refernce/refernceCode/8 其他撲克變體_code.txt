@@ -1,0 +1,229 @@
+# 前端 TypeScript (奧馬哈 UI 骨架 - R3F)
+# <mesh onClick={() => ws.send(JSON.stringify({ action: "raise", amount: 100 }))} />
+
+# 後端 Golang (奧馬哈 MCTS 骨架)
+# func computeOmahaMove(state GameState, iterations int) string {
+#   bestAction := "fold"
+#   bestScore := -1e9
+#   actions := []string{"fold", "call", "raise"}
+#   for _, action := range actions {
+#     score := 0
+#     for i := 0; i < iterations; i++ {
+#       score += simulateOmahaGame(state, action)
+#     }
+#     if score > bestScore { bestScore = score; bestAction = action }
+#   }
+#   return bestAction
+# }
+# func simulateOmahaGame(state GameState, action string) int { return rand.Intn(100) }
+
+# 前端 TypeScript (五張抽牌 UI 骨架 - R3F)
+# <mesh onPointerDown={() => ws.send(JSON.stringify({ action: "draw", cards: [0, 1] }))} />
+
+# 後端 Golang (五張抽牌 AI 骨架)
+# func computeDrawMove(state GameState, iterations int) string {
+#   bestAction := "fold"
+#   bestScore := -1e9
+#   actions := []string{"fold", "call", "draw_1", "draw_2"} // Example actions
+#   for _, action := range actions {
+#     score := simulateDrawGame(state, action)
+#     if score > bestScore { bestScore = score; bestAction = action }
+#   }
+#   return bestAction
+# }
+# func simulateDrawGame(state GameState, action string) int { return rand.Intn(100) }
+
+# 前端 TypeScript (加勒比海 UI 骨架 - R3F)
+# <mesh onClick={() => fetch('/api/move?game=caribbean&action=bet')} />
+
+# 後端 Golang (加勒比海 AI 骨架)
+# func computeCaribbeanMove(state GameState) string {
+#   winProb := 0.6 // Example probability
+#   if winProb > 0.5 { return "bet" }
+#   return "fold"
+# }
+
+# 前端 TypeScript (三張撲克 UI 骨架 - R3F)
+# <mesh onClick={() => fetch('/api/move?game=threecard&action=play')} />
+
+# 後端 Golang (三張撲克 AI 骨架)
+# func computeThreeCardMove(state GameState) string {
+#   if evaluateThreeCardHand(state.PlayerHand) > 0.5 { return "play" }
+#   return "fold"
+# }
+# func evaluateThreeCardHand(hand []int) float64 { return 0.6 } // Placeholder
+
+# 前端 TypeScript (拉米撲克 UI 骨架 - R3F)
+# <mesh onPointerDown={() => ws.send(JSON.stringify({ action: "discard", card: 1 }))} />
+
+# 後端 Golang (拉米撲克 AI 骨架)
+# func computeRummyMove(state GameState, iterations int) string {
+#   bestAction := "discard_1"
+#   bestScore := -1e9
+#   actions := []string{"discard_1", "discard_2", "draw"}
+#   for _, action := range actions {
+#     score := simulateRummyGame(state, action)
+#     if score > bestScore { bestScore = score; bestAction = action }
+#   }
+#   return bestAction
+# }
+# func simulateRummyGame(state GameState, action string) int { return rand.Intn(100) }
+
+# 前端 TypeScript (派高撲克 UI 骨架 - R3F)
+# <mesh onClick={() => fetch('/api/move?game=paigow&action=split')} />
+
+# 後端 Golang (派高撲克 AI 骨架)
+# func computePaiGowMove(state GameState) string {
+#   highHand, lowHand := splitPaiGowHand(state.PlayerHand)
+#   return fmt.Sprintf("split:%v:%v", highHand, lowHand)
+# }
+# func splitPaiGowHand(hand []int) ([]int, []int) { return []int{1,2,3,4,5}, []int{6,7} } // Placeholder
+
+# 前端 (通用 GameCanvas 骨架)
+# import { useRef, useEffect, useState } from 'react';
+# import * as THREE from 'three';
+# const GameCanvas: React.FC = () => {
+#   const mountRef = useRef<HTMLDivElement>(null);
+#   const [isFullscreen, setIsFullscreen] = useState(false);
+#   useEffect(() => {
+#     // ... Three.js scene, camera, renderer setup ...
+#     const geometry = new THREE.PlaneGeometry(1, 1.5);
+#     const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+#     const card = new THREE.Mesh(geometry, material);
+#     // scene.add(card);
+#     camera.position.z = 5;
+#     const animate = () => { /* ... */ renderer.render(scene, camera); };
+#     // ... Resize and fullscreen listeners ...
+#   }, []);
+#   const toggleFullscreen = () => { /* ... */ };
+#   return (
+#     <div ref={mountRef} style={{ width: '100vw', height: '100vh', /* ... */ }}>
+#       <button onClick={toggleFullscreen} style={{ /* ... */ }}>
+#         {isFullscreen ? '退出全螢幕' : '進入全螢幕'}
+#       </button>
+#     </div>
+#   );
+# };
+# export default GameCanvas;
+
+# 手機 Meta Tags (pages/_document.tsx)
+# import Document, { Html, Head, Main, NextScript } from 'next/document';
+# class MyDocument extends Document {
+#   render() {
+#     return (
+#       <Html>
+#         <Head>
+#           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+#           <meta name="apple-mobile-web-app-capable" content="yes" />
+#         </Head>
+#         <body> <Main /> <NextScript /> </body>
+#       </Html>
+#     );
+#   }
+# }
+# export default MyDocument;
+
+# 前端 R3F 低頻渲染
+# import { useFrame } from '@react-three/fiber';
+# let needsUpdate = true;
+# useFrame((state, delta) => {
+#   if (needsUpdate) {
+#     // card.rotation.y += delta * 0.5; // Example animation
+#     state.invalidate(); // Request render
+#     needsUpdate = false; // Reset flag
+#   }
+# });
+
+# 前端 Next.js 動態載入
+# import dynamic from 'next/dynamic';
+# const GameScene = dynamic(() => import('../components/GameScene'), { ssr: false });
+
+# 後端 Golang (統一 API 路由)
+# package main
+# import ("github.com/gin-gonic/gin"; "math/rand"; "net/http"; "fmt"; "sync")
+# type GameState struct { /* ... */ }
+# func main() {
+#   r := gin.Default()
+#   r.GET("/api/move", handleApiMove)
+#   r.Run(":8080")
+# }
+# func handleApiMove(c *gin.Context) {
+#   game := c.Query("game")
+#   state := GameState{ /* ... */ } // Populate state
+#   var aiMove string
+#   switch game {
+#     case "omaha": aiMove = computeOmahaMove(state, 1000)
+#     case "draw": aiMove = computeDrawMove(state, 1000)
+#     case "caribbean": aiMove = computeCaribbeanMove(state)
+#     case "threecard": aiMove = computeThreeCardMove(state)
+#     case "rummy": aiMove = computeRummyMove(state, 1000)
+#     case "paigow": aiMove = computePaiGowMove(state)
+#     default: c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid game"}); return
+#   }
+#   c.JSON(http.StatusOK, gin.H{"action": aiMove})
+# }
+
+# 後端 Golang (WebSocket Handler 骨架)
+# import ("github.com/gorilla/websocket"; "net/http"; "log")
+# var upgrader = websocket.Upgrader{ CheckOrigin: func(r *http.Request) bool { return true } }
+# func handleWebSocket(c *gin.Context) { // Assuming Gin context
+#   conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+#   if err != nil { /* ... */ return }
+#   defer conn.Close()
+#   game := c.Query("game")
+#   for {
+#     var state GameState
+#     err := conn.ReadJSON(&state)
+#     if err != nil { break }
+#     var move string
+#     switch game { /* ... dispatch to compute function ... */ }
+#     conn.WriteJSON(map[string]string{"action": move})
+#   }
+# }
+
+# 後端 Golang (快取骨架)
+# var stateCache sync.Map
+# func evaluateHand(state GameState) float64 {
+#   hash := fmt.Sprintf("%v:%v", state.PlayerHand, state.CommunityCards) // Simplistic hash
+#   if val, ok := stateCache.Load(hash); ok { return val.(float64) }
+#   value := 0.0 // Calculate actual value
+#   stateCache.Store(hash, value)
+#   return value
+# }
+
+# 後端 Golang (MCTS 並行化骨架)
+# func parallelMCTS(state GameState, iterations int, actions []string, numWorkers int) string {
+#   results := make(chan struct{ action string; score float64 }, len(actions))
+#   var wg sync.WaitGroup
+#   simsPerAction := iterations / len(actions)
+#   for _, action := range actions {
+#     wg.Add(1)
+#     go func(act string) {
+#       defer wg.Done()
+#       actionScore := 0.0
+#       // Divide simulations among workers if needed, or just run sequentially per action
+#       for i := 0; i < simsPerAction; i++ {
+#         actionScore += float64(simulateGame(state, act)) // simulateGame needs implementation
+#       }
+#       results <- struct{ action string; score float64 }{act, actionScore / float64(simsPerAction)}
+#     }(action)
+#   }
+#   go func() { wg.Wait(); close(results) }()
+#   bestAction := actions[0]
+#   bestScore := -1e18 // Use very small number for float comparison
+#   for result := range results {
+#     if result.score > bestScore {
+#       bestScore = result.score
+#       bestAction = result.action
+#     }
+#   }
+#   return bestAction
+# }
+
+# 前端 JS (WebSocket 重連)
+# function connectWebSocket(game) {
+#   const ws = new WebSocket(`ws://your-backend:8080/ws?game=${game}`);
+#   ws.onclose = () => setTimeout(() => connectWebSocket(game), 1000);
+#   // ... other handlers (onopen, onmessage, onerror)
+#   return ws;
+# } 
