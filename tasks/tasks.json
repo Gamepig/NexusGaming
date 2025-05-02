@@ -1,0 +1,65 @@
+[
+  {
+    "id": "1",
+    "title": "設定 GitHub Repository 與 Push 權限",
+    "description": "創建 GitHub repository，設定 main 分支保護規則，並配置團隊成員的 Push 權限。",
+    "status": "done",
+    "dependencies": [],
+    "priority": "high",
+    "details": "1. 在 GitHub 創建 NexusGaming repository.\n2. 設定 main 為默認和保護分支 (e.g., require PR review, disallow force pushes)。\n3. 邀請團隊成員並授予適當權限 (e.g., Write)。",
+    "testStrategy": "確認團隊成員可以 clone repository 且 main 分支受到保護。",
+    "subtasks": []
+  },
+  {
+    "id": "2",
+    "title": "設定 GitHub Actions CI/CD Pipeline",
+    "description": "為 Golang 後端、Python AI 服務和 Next.js 前端配置基本的 GitHub Actions CI/CD workflows。",
+    "status": "in-progress",
+    "dependencies": ["1"],
+    "priority": "high",
+    "details": "拆分為子任務 2.1, 2.2, 2.3 (CI) 和 2.4 (CD)。",
+    "testStrategy": "參考各子任務的測試策略。",
+    "subtasks": [
+      {
+        "id": "2.1",
+        "title": "設定 Go CI Workflow",
+        "description": "創建並配置 .github/workflows/go-ci.yml 以執行 Go 後端的 build, test, lint。",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "1. 使用 actions/checkout 和 actions/setup-go。\n2. 執行 go build。\n3. 執行 go test。\n4. (可選) 加入 golangci-lint。",
+        "testStrategy": "在 .github/workflows/go-ci.yml 創建後，推送 commit 到 main 分支，檢查 GitHub Actions 是否成功執行 Go 的 build 和 test。"
+      },
+      {
+        "id": "2.2",
+        "title": "設定 Python CI Workflow",
+        "description": "創建並配置 .github/workflows/python-ci.yml 以執行 Python AI 服務的 build, test, lint。",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "1. 使用 actions/checkout 和 actions/setup-python。\n2. 安裝依賴 (e.g., pip install -r requirements.txt)。\n3. 使用 flake8 進行 linting。\n4. 使用 pytest 進行測試。",
+        "testStrategy": "在 .github/workflows/python-ci.yml 創建後，推送 commit 到 main 分支，檢查 GitHub Actions 是否成功安裝依賴、執行 lint 和 test。"
+      },
+      {
+        "id": "2.3",
+        "title": "設定 Node.js CI Workflow",
+        "description": "創建並配置 .github/workflows/node-ci.yml 以執行 Next.js 前端的 build, test, lint。",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "1. 使用 actions/checkout 和 actions/setup-node (指定 Node 版本)。\n2. 使用 npm ci 或 yarn install 安裝依賴。\n3. 執行 npm run build 或 yarn build。\n4. 執行 npm test 或 yarn test。\n5. (可選) 加入 ESLint。",
+        "testStrategy": "在 .github/workflows/node-ci.yml 創建後，推送 commit 到 main 分支，檢查 GitHub Actions 是否成功安裝依賴、執行 build 和 test。"
+      },
+      {
+        "id": "2.4",
+        "title": "設定 Kubernetes 部署 (CD)",
+        "description": "擴展 CI workflows 或創建新的 workflow，以將應用程式容器部署到 Kubernetes 集群。",
+        "status": "pending",
+        "dependencies": ["2.1", "2.2", "2.3"],
+        "priority": "high",
+        "details": "1. 選擇部署策略 (e.g., push to registry on main branch merge)。\n2. 配置 Kubernetes secrets (e.g., registry credentials, Kubeconfig)。\n3. 編寫 kubectl apply 或 Helm chart 部署步驟。\n4. 確保部署觸發條件正確 (e.g., only on merge to main)。",
+        "testStrategy": "合併 PR 到 main 分支後，確認 GitHub Actions 成功觸發部署，並驗證應用程式是否已更新到 Kubernetes 環境中。"
+      }
+    ]
+  }
+] 
