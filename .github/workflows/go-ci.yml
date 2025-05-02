@@ -1,0 +1,25 @@
+# .github/workflows/go-ci.yml
+name: Go CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21' # 根據 memory-bank/techContext.md 調整
+
+    - name: Build # 假設 Go 代碼在 backend/ 目錄下
+      run: go build -v ./backend/...
+
+    - name: Test # 假設 Go 測試代碼在 backend/ 目錄下
+      run: go test -v ./backend/... 

@@ -1,0 +1,38 @@
+# .github/workflows/node-ci.yml
+name: Node.js CI (Next.js)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x] # 根據 Next.js 需求調整, 參考 memory-bank/techContext.md
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm' # 假設使用 npm, 如果用 yarn 或 pnpm 需修改
+        cache-dependency-path: frontend/package-lock.json # 假設前端代碼在 frontend/ 目錄下
+
+    - name: Install dependencies # 假設前端代碼在 frontend/ 目錄下
+      run: npm ci
+      working-directory: ./frontend
+
+    - name: Build # 假設前端代碼在 frontend/ 目錄下
+      run: npm run build --if-present
+      working-directory: ./frontend
+
+    - name: Run tests # 假設前端代碼在 frontend/ 目錄下
+      run: npm test
+      working-directory: ./frontend 
