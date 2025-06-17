@@ -212,7 +212,7 @@ func (s *AuthService) CheckPermission(user *models.User, requiredRole string) bo
 // 私有方法：根據 ID 獲取使用者
 func (s *AuthService) getUserByID(id int) (*models.User, error) {
 	query := `
-		SELECT u.id, u.username, u.email, u.password, u.role_id, u.status, u.last_login_at, u.created_at, u.updated_at,
+		SELECT u.id, u.username, u.email, u.password_hash, u.role_id, u.status, u.last_login_at, u.created_at, u.updated_at,
 		       r.id, r.name, r.description, r.permissions, r.created_at, r.updated_at
 		FROM users u
 		LEFT JOIN roles r ON u.role_id = r.id
@@ -256,7 +256,7 @@ func (s *AuthService) getUserByID(id int) (*models.User, error) {
 // 私有方法：根據使用者名稱獲取使用者
 func (s *AuthService) getUserByUsername(username string) (*models.User, error) {
 	query := `
-		SELECT u.id, u.username, u.email, u.password, u.role_id, u.status, u.last_login_at, u.created_at, u.updated_at,
+		SELECT u.id, u.username, u.email, u.password_hash, u.role_id, u.status, u.last_login_at, u.created_at, u.updated_at,
 		       r.id, r.name, r.description, r.permissions, r.created_at, r.updated_at
 		FROM users u
 		LEFT JOIN roles r ON u.role_id = r.id

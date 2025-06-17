@@ -55,16 +55,34 @@ func SetupRoutes(r *gin.Engine) {
 				players.GET("/:id/games", playerController.GetPlayerGameHistory) // 新增：玩家遊戲歷史
 				players.GET("/search", playerController.SearchPlayers)
 				players.GET("/filter", playerController.FilterPlayers)
-				players.POST("/", controllers.CreatePlayer)
-				players.PUT("/:id", controllers.UpdatePlayer)
-				players.DELETE("/:id", controllers.DeletePlayer)
-				players.PUT("/:id/status", controllers.UpdatePlayerStatus)
+				players.POST("/", playerController.CreatePlayer)
+				players.PUT("/:id", playerController.UpdatePlayer)
+				players.DELETE("/:id", playerController.DeletePlayer)
+				players.PUT("/:id/status", playerController.UpdatePlayerStatus)
 
 				// 玩家點數管理
-				players.GET("/:id/balance", controllers.GetPlayerBalance)
-				players.POST("/:id/deposit", controllers.DepositPlayerBalance)
-				players.POST("/:id/withdraw", controllers.WithdrawPlayerBalance)
-				players.GET("/:id/transactions", controllers.GetPlayerTransactions)
+				players.GET("/:id/balance", playerController.GetPlayerBalance)
+				players.POST("/:id/deposit", playerController.DepositPlayerBalance)
+				players.POST("/:id/withdraw", playerController.WithdrawPlayerBalance)
+				players.GET("/:id/transactions", playerController.GetPlayerTransactions)
+
+				// 玩家限制管理
+				players.POST("/:id/restrictions", playerController.SetPlayerRestriction)
+				players.GET("/:id/restrictions", playerController.GetPlayerRestrictions)
+				players.DELETE("/:id/restrictions/:restriction_id", playerController.RemovePlayerRestriction)
+
+				// 玩家風險評估
+				players.POST("/:id/risk-assessment", playerController.AssessPlayerRisk)
+				players.GET("/:id/risk-history", playerController.GetPlayerRiskHistory)
+
+				// 玩家註銷功能
+				players.POST("/:id/deactivate", playerController.DeactivatePlayer)
+				players.GET("/:id/deactivation-history", playerController.GetPlayerDeactivationHistory)
+
+				// 玩家行為分析
+				players.POST("/:id/behavior-analysis", playerController.AnalyzePlayerBehavior)
+				players.POST("/:id/game-preference", playerController.AnalyzePlayerGamePreference)
+				players.POST("/:id/spending-habits", playerController.AnalyzePlayerSpendingHabits)
 			}
 
 			// 遊戲管理路由

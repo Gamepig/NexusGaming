@@ -570,6 +570,753 @@
               }
             }
           }
+        },
+        "get_player_balance": {
+          "method": "GET",
+          "path": "/api/v1/players/{id}/balance",
+          "description": "取得玩家點數餘額資訊，包含可用餘額、凍結餘額和總餘額",
+          "content_type": "application/json",
+          "auth_required": true,
+          "auth_header": "Authorization: Bearer {token}",
+          "path_parameters": {
+            "id": {
+              "type": "integer",
+              "required": true,
+              "minimum": 1,
+              "description": "玩家ID",
+              "example": 123
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "成功取得玩家餘額資訊",
+              "content": {
+                "success": true,
+                "message": "Player balance retrieved successfully",
+                "data": {
+                  "player_id": 123,
+                  "username": "player123",
+                  "balance": 2500.50,
+                  "frozen_balance": 100.00,
+                  "total_balance": 2600.50,
+                  "last_updated": "2024-12-19T10:30:00Z"
+                }
+              }
+            },
+            "400": {
+              "description": "請求參數錯誤",
+              "content": {
+                "success": false,
+                "message": "Invalid player ID format",
+                "error_code": "INVALID_PLAYER_ID"
+              }
+            },
+            "401": {
+              "description": "未授權",
+              "content": {
+                "success": false,
+                "message": "Unauthorized",
+                "error_code": "UNAUTHORIZED"
+              }
+            },
+            "404": {
+              "description": "玩家不存在",
+              "content": {
+                "success": false,
+                "message": "Player not found",
+                "error_code": "PLAYER_NOT_FOUND"
+              }
+            },
+            "500": {
+              "description": "伺服器內部錯誤",
+              "content": {
+                "success": false,
+                "message": "Failed to query player balance: database connection error",
+                "error_code": "DATABASE_ERROR"
+              }
+            }
+          }
+        },
+        "analyze_player_behavior": {
+          "method": "POST",
+          "path": "/api/v1/players/{id}/behavior-analysis",
+          "description": "執行玩家行為模式分析，包含遊戲頻率、下注模式、時間偏好、會話行為等綜合分析",
+          "content_type": "application/json",
+          "auth_required": true,
+          "auth_header": "Authorization: Bearer {token}",
+          "path_parameters": {
+            "id": {
+              "type": "integer",
+              "required": true,
+              "minimum": 1,
+              "description": "玩家ID",
+              "example": 123
+            }
+          },
+          "request_body": {
+            "analysis_type": {
+              "type": "string",
+              "required": true,
+              "enum": ["gaming_frequency", "betting_pattern", "time_preference", "session_analysis", "comprehensive"],
+              "description": "分析類型：gaming_frequency（遊戲頻率）、betting_pattern（下注模式）、time_preference（時間偏好）、session_analysis（會話分析）、comprehensive（綜合分析）",
+              "example": "comprehensive"
+            },
+            "time_range": {
+              "type": "string",
+              "required": true,
+              "enum": ["7d", "30d", "90d", "180d", "365d"],
+              "description": "分析時間範圍：7d（7天）、30d（30天）、90d（90天）、180d（180天）、365d（365天）",
+              "example": "30d"
+            },
+            "include_graphs": {
+              "type": "boolean",
+              "required": false,
+              "default": true,
+              "description": "是否包含圖表資料",
+              "example": true
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "成功完成玩家行為分析",
+              "content": {
+                "success": true,
+                "message": "Player behavior analysis completed successfully",
+                "data": {
+                  "player_id": 123,
+                  "username": "player123",
+                  "analysis_date": "2024-12-19T14:30:00Z",
+                  "analysis_type": "comprehensive",
+                  "time_range": "30d",
+                  "behavior_summary": {
+                    "player_type": "regular",
+                    "activity_level": "medium",
+                    "primary_game_type": "texas_holdem",
+                    "average_session_time": 45.5,
+                    "weekly_gaming_days": 4.2,
+                    "preferred_time_slot": "evening",
+                    "behavior_stability": "stable",
+                    "risk_level": "low"
+                  },
+                  "gaming_frequency": {
+                    "total_sessions": 42,
+                    "active_days": 18,
+                    "sessions_per_day": 2.3,
+                    "sessions_per_week": 10.5,
+                    "longest_streak": 5,
+                    "current_streak": 2,
+                    "days_without_gaming": 3,
+                    "frequency_trend": "stable",
+                    "weekly_distribution": [8, 6, 5, 7, 8, 4, 4]
+                  },
+                  "betting_pattern": {
+                    "total_bets": 326,
+                    "average_bet_amount": 125.50,
+                    "median_bet_amount": 100.00,
+                    "min_bet_amount": 25.00,
+                    "max_bet_amount": 500.00,
+                    "bet_size_variability": 45.2,
+                    "bet_size_stability": "moderate",
+                    "bet_size_categories": {
+                      "small": 85,
+                      "medium": 190,
+                      "large": 45,
+                      "huge": 6
+                    },
+                    "progressive_betting": false,
+                    "betting_rhythm": "normal",
+                    "game_type_betting": {
+                      "texas_holdem": 135.20,
+                      "stud_poker": 115.80,
+                      "baccarat": 98.50
+                    }
+                  },
+                  "time_preference": {
+                    "most_active_hour": 20,
+                    "most_active_day": "Friday",
+                    "time_slot_activity": {
+                      "morning": {
+                        "session_count": 5,
+                        "total_bets": 42,
+                        "total_winnings": 1250.00,
+                        "average_session": 35.2,
+                        "win_rate": 65.5,
+                        "activity_intensity": "low"
+                      },
+                      "afternoon": {
+                        "session_count": 8,
+                        "total_bets": 68,
+                        "total_winnings": 2150.00,
+                        "average_session": 42.1,
+                        "win_rate": 58.8,
+                        "activity_intensity": "medium"
+                      },
+                      "evening": {
+                        "session_count": 25,
+                        "total_bets": 189,
+                        "total_winnings": 5850.00,
+                        "average_session": 48.9,
+                        "win_rate": 62.4,
+                        "activity_intensity": "high"
+                      },
+                      "night": {
+                        "session_count": 4,
+                        "total_bets": 27,
+                        "total_winnings": 750.00,
+                        "average_session": 38.5,
+                        "win_rate": 55.6,
+                        "activity_intensity": "low"
+                      }
+                    },
+                    "weekend_vs_weekday": {
+                      "weekday_stats": {
+                        "session_count": 28,
+                        "average_session_time": 43.2,
+                        "total_bets": 218,
+                        "average_bet_amount": 128.50,
+                        "win_rate": 61.9
+                      },
+                      "weekend_stats": {
+                        "session_count": 14,
+                        "average_session_time": 52.8,
+                        "total_bets": 108,
+                        "average_bet_amount": 118.20,
+                        "win_rate": 59.3
+                      },
+                      "preference": "weekday"
+                    }
+                  },
+                  "session_analysis": {
+                    "total_sessions": 42,
+                    "average_session_time": 45.5,
+                    "median_session_time": 42.0,
+                    "shortest_session": 15.0,
+                    "longest_session": 125.5,
+                    "session_time_variability": 22.8,
+                    "session_categories": {
+                      "short": 8,
+                      "medium": 28,
+                      "long": 5,
+                      "marathon": 1
+                    },
+                    "session_profitability": {
+                      "profitable_sessions": 26,
+                      "breakeven_sessions": 3,
+                      "lossy_sessions": 13,
+                      "average_profit": 185.50,
+                      "average_loss": -125.80,
+                      "profit_rate": 61.9
+                    }
+                  },
+                  "behavior_trends": [
+                    {
+                      "metric": "frequency",
+                      "trend_type": "stable",
+                      "change_rate": 2.1,
+                      "significance": "low",
+                      "period": "last_30_days",
+                      "description": "遊戲頻率保持穩定，略有上升趨勢"
+                    },
+                    {
+                      "metric": "bet_amount",
+                      "trend_type": "increasing",
+                      "change_rate": 8.5,
+                      "significance": "medium",
+                      "period": "last_30_days",
+                      "description": "平均下注金額呈現溫和上升趨勢"
+                    }
+                  ],
+                  "risk_indicators": [
+                    {
+                      "indicator_type": "behavior_risk",
+                      "level": "low",
+                      "score": 25.5,
+                      "description": "每日平均2.3次遊戲會話",
+                      "triggers": ["moderate_frequency_gaming"],
+                      "recommendations": ["維持健康的遊戲習慣"]
+                    },
+                    {
+                      "indicator_type": "financial_risk",
+                      "level": "low",
+                      "score": 18.2,
+                      "description": "平均下注金額125.50",
+                      "triggers": ["moderate_bet_amount"],
+                      "recommendations": ["繼續理性投注"]
+                    }
+                  ],
+                  "recommendations": [
+                    "玩家行為正常，繼續常規監控",
+                    "保持良好的客戶關係",
+                    "提供個性化遊戲推薦"
+                  ],
+                  "graph_data": [
+                    {
+                      "graph_type": "bar",
+                      "title": "每週遊戲分佈",
+                      "x_axis_label": "星期",
+                      "y_axis_label": "遊戲次數",
+                      "data_points": [
+                        {"label": "Monday", "value": 8},
+                        {"label": "Tuesday", "value": 6},
+                        {"label": "Wednesday", "value": 5},
+                        {"label": "Thursday", "value": 7},
+                        {"label": "Friday", "value": 8},
+                        {"label": "Saturday", "value": 4},
+                        {"label": "Sunday", "value": 4}
+                      ]
+                    },
+                    {
+                      "graph_type": "line",
+                      "title": "每小時活動分佈",
+                      "x_axis_label": "時間",
+                      "y_axis_label": "活動次數",
+                      "data_points": [
+                        {"label": "19:00", "value": 12},
+                        {"label": "20:00", "value": 25},
+                        {"label": "21:00", "value": 18},
+                        {"label": "22:00", "value": 8}
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "400": {
+              "description": "請求參數錯誤",
+              "content": {
+                "success": false,
+                "message": "Invalid analysis_type or time_range parameter",
+                "error_code": "INVALID_PARAMETERS"
+              }
+            },
+            "401": {
+              "description": "未授權",
+              "content": {
+                "success": false,
+                "message": "Unauthorized",
+                "error_code": "UNAUTHORIZED"
+              }
+            },
+            "404": {
+              "description": "玩家不存在",
+              "content": {
+                "success": false,
+                "message": "Player not found",
+                "error_code": "PLAYER_NOT_FOUND"
+              }
+            },
+            "500": {
+              "description": "伺服器內部錯誤",
+              "content": {
+                "success": false,
+                "message": "Failed to perform behavior analysis: analysis service error",
+                "error_code": "ANALYSIS_ERROR"
+              }
+            }
+          }
+        },
+        "analyze_player_game_preference": {
+          "method": "POST",
+          "path": "/api/v1/players/{id}/game-preference",
+          "description": "分析玩家遊戲偏好統計，包含最喜愛的遊戲類型、參與度、時間分佈、投注習慣差異等",
+          "content_type": "application/json",
+          "auth_required": true,
+          "auth_header": "Authorization: Bearer {token}",
+          "path_parameters": {
+            "id": {
+              "type": "integer",
+              "required": true,
+              "minimum": 1,
+              "description": "玩家ID",
+              "example": 123
+            }
+          },
+          "request_body": {
+            "time_range": {
+              "type": "string",
+              "required": false,
+              "default": "30d",
+              "enum": ["7d", "30d", "90d", "180d", "365d"],
+              "description": "分析時間範圍",
+              "example": "30d"
+            },
+            "include_trends": {
+              "type": "boolean",
+              "required": false,
+              "default": true,
+              "description": "是否包含偏好變化趨勢",
+              "example": true
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "成功完成玩家遊戲偏好分析",
+              "content": {
+                "success": true,
+                "message": "Player game preference analysis completed successfully",
+                "data": {
+                  "player_id": 123,
+                  "analysis_date": "2024-12-19T14:30:00Z",
+                  "time_range": "30d",
+                  "primary_game_type": "texas_holdem",
+                  "secondary_game_type": "baccarat",
+                  "game_participation": {
+                    "texas_holdem": {
+                      "total_sessions": 28,
+                      "participation_rate": 66.7,
+                      "average_session_time": 52.3,
+                      "total_bets": 198,
+                      "average_bet_amount": 135.20,
+                      "win_rate": 64.1,
+                      "total_winnings": 5850.00,
+                      "preferred_time_slots": ["evening", "afternoon"],
+                      "activity_level": "high"
+                    },
+                    "stud_poker": {
+                      "total_sessions": 8,
+                      "participation_rate": 19.0,
+                      "average_session_time": 38.5,
+                      "total_bets": 68,
+                      "average_bet_amount": 115.80,
+                      "win_rate": 58.8,
+                      "total_winnings": 1850.00,
+                      "preferred_time_slots": ["morning", "afternoon"],
+                      "activity_level": "medium"
+                    },
+                    "baccarat": {
+                      "total_sessions": 6,
+                      "participation_rate": 14.3,
+                      "average_session_time": 35.2,
+                      "total_bets": 60,
+                      "average_bet_amount": 98.50,
+                      "win_rate": 55.0,
+                      "total_winnings": 1200.00,
+                      "preferred_time_slots": ["evening", "night"],
+                      "activity_level": "low"
+                    }
+                  },
+                  "preference_trends": [
+                    {
+                      "period": "week_1",
+                      "primary_game": "texas_holdem",
+                      "participation_distribution": {
+                        "texas_holdem": 70.0,
+                        "stud_poker": 20.0,
+                        "baccarat": 10.0
+                      }
+                    },
+                    {
+                      "period": "week_2",
+                      "primary_game": "texas_holdem", 
+                      "participation_distribution": {
+                        "texas_holdem": 65.0,
+                        "stud_poker": 25.0,
+                        "baccarat": 10.0
+                      }
+                    },
+                    {
+                      "period": "week_3",
+                      "primary_game": "texas_holdem",
+                      "participation_distribution": {
+                        "texas_holdem": 68.0,
+                        "stud_poker": 17.0,
+                        "baccarat": 15.0
+                      }
+                    },
+                    {
+                      "period": "week_4",
+                      "primary_game": "texas_holdem",
+                      "participation_distribution": {
+                        "texas_holdem": 64.0,
+                        "stud_poker": 18.0,
+                        "baccarat": 18.0
+                      }
+                    }
+                  ],
+                  "time_distribution": {
+                    "texas_holdem": {
+                      "morning": 15.0,
+                      "afternoon": 25.0,
+                      "evening": 45.0,
+                      "night": 15.0
+                    },
+                    "stud_poker": {
+                      "morning": 35.0,
+                      "afternoon": 40.0,
+                      "evening": 20.0,
+                      "night": 5.0
+                    },
+                    "baccarat": {
+                      "morning": 10.0,
+                      "afternoon": 20.0,
+                      "evening": 35.0,
+                      "night": 35.0
+                    }
+                  },
+                  "betting_habit_differences": {
+                    "texas_holdem": {
+                      "risk_tolerance": "medium-high",
+                      "avg_bet_size": "large",
+                      "betting_consistency": "stable",
+                      "max_bet_frequency": "medium"
+                    },
+                    "stud_poker": {
+                      "risk_tolerance": "medium",
+                      "avg_bet_size": "medium",
+                      "betting_consistency": "conservative",
+                      "max_bet_frequency": "low"
+                    },
+                    "baccarat": {
+                      "risk_tolerance": "low-medium",
+                      "avg_bet_size": "small-medium",
+                      "betting_consistency": "cautious",
+                      "max_bet_frequency": "very_low"
+                    }
+                  },
+                  "recommendations": [
+                    "重點推廣德州撲克相關活動和比賽",
+                    "在下午和晚間時段推送德州撲克通知",
+                    "提供德州撲克的進階策略教學",
+                    "考慮為百家樂提供特殊優惠以增加參與度"
+                  ]
+                }
+              }
+            },
+            "400": {
+              "description": "請求參數錯誤",
+              "content": {
+                "success": false,
+                "message": "Invalid time_range parameter",
+                "error_code": "INVALID_PARAMETERS"
+              }
+            },
+            "401": {
+              "description": "未授權",
+              "content": {
+                "success": false,
+                "message": "Unauthorized",
+                "error_code": "UNAUTHORIZED"
+              }
+            },
+            "404": {
+              "description": "玩家不存在",
+              "content": {
+                "success": false,
+                "message": "Player not found",
+                "error_code": "PLAYER_NOT_FOUND"
+              }
+            },
+            "500": {
+              "description": "伺服器內部錯誤",
+              "content": {
+                "success": false,
+                "message": "Failed to perform game preference analysis",
+                "error_code": "ANALYSIS_ERROR"
+              }
+            }
+          }
+        },
+        "analyze_player_spending_habits": {
+          "method": "POST",
+          "path": "/api/v1/players/{id}/spending-habits",
+          "description": "分析玩家消費習慣，包含消費頻率、金額模式、時間分布、管道偏好、風險評估和消費能力等維度",
+          "content_type": "application/json",
+          "auth_required": true,
+          "auth_header": "Authorization: Bearer {token}",
+          "path_parameters": {
+            "id": {
+              "type": "integer",
+              "required": true,
+              "minimum": 1,
+              "description": "玩家ID",
+              "example": 123
+            }
+          },
+          "request_body": {
+            "time_range": {
+              "type": "string",
+              "required": false,
+              "default": "90d",
+              "enum": ["30d", "60d", "90d", "180d", "365d"],
+              "description": "分析時間範圍",
+              "example": "90d"
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "成功完成玩家消費習慣分析",
+              "content": {
+                "success": true,
+                "data": {
+                  "player_id": "123",
+                  "analysis_date": "2024-12-19 15:30:00",
+                  "spending_frequency": {
+                    "total_days_active": 25,
+                    "total_transactions": 68,
+                    "average_daily_transactions": 2.72,
+                    "frequency_level": "medium",
+                    "daily_spending_details": [
+                      {
+                        "date": "2024-12-18",
+                        "transaction_count": 4,
+                        "spending_amount": 1250.00
+                      },
+                      {
+                        "date": "2024-12-17",
+                        "transaction_count": 2,
+                        "spending_amount": 800.00
+                      }
+                    ],
+                    "analysis_period": "30 days"
+                  },
+                  "spending_amount": {
+                    "min_amount": 50.00,
+                    "max_amount": 2000.00,
+                    "average_amount": 185.50,
+                    "total_amount": 12614.00,
+                    "transaction_count": 68,
+                    "spending_level": "medium_value",
+                    "amount_ranges": {
+                      "small": {
+                        "count": 28,
+                        "total": 2100.00
+                      },
+                      "medium": {
+                        "count": 25,
+                        "total": 6250.00
+                      },
+                      "large": {
+                        "count": 12,
+                        "total": 3600.00
+                      },
+                      "very_large": {
+                        "count": 3,
+                        "total": 664.00
+                      }
+                    },
+                    "analysis_period": "90 days"
+                  },
+                  "spending_time_pattern": {
+                    "hourly_pattern": [
+                      {
+                        "hour": 9,
+                        "transaction_count": 8,
+                        "total_amount": 850.00
+                      },
+                      {
+                        "hour": 14,
+                        "transaction_count": 12,
+                        "total_amount": 1250.00
+                      },
+                      {
+                        "hour": 20,
+                        "transaction_count": 15,
+                        "total_amount": 1680.00
+                      }
+                    ],
+                    "weekly_pattern": [
+                      {
+                        "day_of_week": 1,
+                        "day_name": "Sunday",
+                        "transaction_count": 8,
+                        "total_amount": 950.00
+                      },
+                      {
+                        "day_of_week": 6,
+                        "day_name": "Friday",
+                        "transaction_count": 12,
+                        "total_amount": 1450.00
+                      }
+                    ],
+                    "peak_spending_hours": ["20:00-20:59"]
+                  },
+                  "spending_channel": {
+                    "channels": {
+                      "deposit": {
+                        "count": 25,
+                        "total": 8500.00,
+                        "average": 340.00,
+                        "percentage": 36.8
+                      },
+                      "bet": {
+                        "count": 38,
+                        "total": 3850.00,
+                        "average": 101.32,
+                        "percentage": 55.9
+                      },
+                      "purchase": {
+                        "count": 5,
+                        "total": 264.00,
+                        "average": 52.80,
+                        "percentage": 7.3
+                      }
+                    },
+                    "total_transactions": 68,
+                    "total_amount": 12614.00,
+                    "analysis_period": "60 days"
+                  },
+                  "spending_risk": {
+                    "risk_score": 25,
+                    "risk_level": "medium",
+                    "risk_factors": ["Continuous daily spending"],
+                    "large_transaction_count": 3,
+                    "consecutive_spending_days": 7,
+                    "recommendations": [
+                      "Monitor spending patterns closely",
+                      "Consider setting spending limits",
+                      "Provide responsible gaming reminders"
+                    ]
+                  },
+                  "spending_capacity": {
+                    "total_deposits_90d": 8500.00,
+                    "average_deposit": 340.00,
+                    "capacity_level": "medium",
+                    "estimated_monthly_budget": 2833.33,
+                    "analysis_period": "90 days"
+                  },
+                  "recommended_actions": [
+                    "持續監控消費模式，提供個人化服務",
+                    "根據消費習慣調整行銷策略",
+                    "提供負責任博弈提醒和預防措施"
+                  ],
+                  "summary": "玩家消費習慣分析已完成。該分析包含消費頻率、金額模式、時間分布、管道偏好、風險評估和消費能力等多個維度的深入分析，為制定個人化服務策略提供了數據支持。"
+                },
+                "timestamp": "2024-12-19 15:30:00"
+              }
+            },
+            "400": {
+              "description": "請求參數錯誤",
+              "content": {
+                "success": false,
+                "message": "Player ID is required",
+                "error_code": "INVALID_PLAYER_ID"
+              }
+            },
+            "401": {
+              "description": "未授權",
+              "content": {
+                "success": false,
+                "message": "Unauthorized",
+                "error_code": "UNAUTHORIZED"
+              }
+            },
+            "404": {
+              "description": "玩家不存在",
+              "content": {
+                "success": false,
+                "message": "Player not found",
+                "error_code": "PLAYER_NOT_FOUND"
+              }
+            },
+            "500": {
+              "description": "伺服器內部錯誤",
+              "content": {
+                "success": false,
+                "message": "Database query failed",
+                "error_code": "DB_ERROR"
+              }
+            }
+          }
         }
       }
     },
