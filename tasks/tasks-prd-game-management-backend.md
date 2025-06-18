@@ -17,7 +17,7 @@
 - `backend/models/agent.go` - 代理商/經銷商模型
 - `database/init/05-agents.sql` - 代理商/經銷商相關表結構，包含多層級分潤系統
 - `backend/controllers/auth.go` - 身份驗證控制器
-- `backend/controllers/player.go` - 玩家控制器，實現玩家列表查詢、詳細資訊查詢、遊戲歷史查詢、點數餘額查詢、狀態管理、限制設定、風險評估、帳戶註銷 API（支援分頁、排序、搜尋、篩選），已新增創建、更新、刪除、提領、交易記錄等方法框架，並實現玩家行為模式分析（任務2.5.1）、玩家遊戲偏好統計（任務2.5.2）和玩家消費習慣分析（任務2.5.3）
+- `backend/controllers/player.go` - 玩家控制器，實現玩家列表查詢、詳細資訊查詢、遊戲歷史查詢、點數餘額查詢、狀態管理、限制設定、風險評估、帳戶註銷 API（支援分頁、排序、搜尋、篩選），已新增創建、更新、刪除、提領、交易記錄等方法框架，並實現玩家行為模式分析（任務2.5.1）、玩家遊戲偏好統計（任務2.5.2）、玩家消費習慣分析（任務2.5.3）和玩家價值評分系統（任務2.5.4）
 - `backend/controllers/game.go` - 遊戲管理控制器
 - `backend/controllers/financial.go` - 財務管理控制器
 - `backend/controllers/agent.go` - 代理商管理控制器
@@ -41,7 +41,9 @@
 - `frontend/components/FinancialManagement.tsx` - 財務管理界面
 - `frontend/components/AgentManagement.tsx` - 代理商管理界面
 - `frontend/components/ReportAnalysis.tsx` - 報表分析界面
-- `frontend/services/api.ts` - API 服務層
+- `frontend/src/services/api.ts` - 前端 API 服務層，處理所有後端 API 調用，包含玩家相關 API 方法和身份驗證
+- `frontend/src/components/PlayerList.tsx` - 玩家列表展示組件，支援搜尋、篩選、排序、分頁功能（任務2.6.1）
+- `frontend/src/app/players/page.tsx` - 玩家管理頁面，整合 PlayerList 組件
 - `docker-compose.yml` - Docker Compose 配置文件（MySQL, Redis, PHPMyAdmin）
 - `env.example` - 環境變數範例文件
 - `database/init/01-init.sql` - 資料庫初始化 SQL 腳本
@@ -119,7 +121,7 @@
     - [x] 2.2.2 新增進階搜尋功能（姓名、郵件、註冊日期範圍）
     - [x] 2.2.3 實現玩家詳細資訊查詢 API
     - [x] 2.2.4 新增玩家遊戲歷史查詢功能
-  - [ ] 2.3 玩家點數管理功能
+  - [x] 2.3 玩家點數管理功能
     - [x] 2.3.1 實現玩家點數餘額查詢 API
     - [x] 2.3.2 實現玩家點數充值 API
     - [x] 2.3.3 實現玩家點數調整 API（增加、減少）
@@ -130,13 +132,13 @@
     - [x] 2.4.2 實現玩家限制設定 API（下注限額、遊戲限制）
     - [x] 2.4.3 建立玩家風險評估系統
     - [x] 2.4.4 實現玩家註銷功能
-  - [ ] 2.5 玩家分析功能
+  - [x] 2.5 玩家分析功能
     - [x] 2.5.1 實現玩家行為模式分析
     - [x] 2.5.2 實現玩家遊戲偏好統計
     - [x] 2.5.3 實現玩家消費習慣分析
-    - [ ] 2.5.4 建立玩家價值評分系統
+    - [x] 2.5.4 建立玩家價值評分系統
   - [ ] 2.6 玩家管理前端界面
-    - [ ] 2.6.1 建立玩家列表展示組件
+    - [x] 2.6.1 建立玩家列表展示組件
     - [ ] 2.6.2 建立玩家詳細資料展示組件
     - [ ] 2.6.3 建立玩家點數管理組件
     - [ ] 2.6.4 建立玩家狀態管理組件

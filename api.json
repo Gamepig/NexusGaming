@@ -1320,6 +1320,222 @@
         }
       }
     },
+    "/api/v1/players/{id}/value-score": {
+      "post": {
+        "summary": "計算玩家價值評分",
+        "description": "基於玩家行為、遊戲偏好、消費習慣等數據計算綜合價值評分",
+        "tags": ["Player Analysis"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "玩家唯一識別碼"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Bearer token for authentication"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "time_range": {
+                    "type": "string",
+                    "enum": ["30d", "90d", "180d", "365d"],
+                    "description": "評分時間範圍",
+                    "default": "90d"
+                  },
+                  "include_details": {
+                    "type": "boolean",
+                    "description": "是否包含詳細分析",
+                    "default": true
+                  },
+                  "weight_config": {
+                    "type": "object",
+                    "properties": {
+                      "activity_weight": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1,
+                        "description": "活躍度權重",
+                        "default": 0.25
+                      },
+                      "loyalty_weight": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1,
+                        "description": "忠誠度權重",
+                        "default": 0.2
+                      },
+                      "spending_weight": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1,
+                        "description": "消費力權重",
+                        "default": 0.25
+                      },
+                      "risk_weight": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1,
+                        "description": "風險權重",
+                        "default": 0.15
+                      },
+                      "profitability_weight": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1,
+                        "description": "盈利性權重",
+                        "default": 0.15
+                      }
+                    },
+                    "description": "自定義權重配置"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功返回玩家價值評分",
+            "content": {
+              "success": true,
+              "data": {
+                "player_id": "123",
+                "analysis_date": "2024-12-19 15:35:00",
+                "overall_score": 7.5,
+                "value_category": "high_value",
+                "score_breakdown": {
+                  "activity_score": {
+                    "score": 8.2,
+                    "weight": 0.25,
+                    "weighted_score": 2.05,
+                    "login_frequency": 0.85,
+                    "session_duration": 125.5,
+                    "engagement_level": "high",
+                    "consistency_level": "high"
+                  },
+                  "loyalty_score": {
+                    "score": 7.8,
+                    "weight": 0.2,
+                    "weighted_score": 1.56,
+                    "loyalty_months": 8,
+                    "retention_rate": 0.92,
+                    "preference_stability": 0.85,
+                    "loyalty_level": "high"
+                  },
+                  "spending_score": {
+                    "score": 6.9,
+                    "weight": 0.25,
+                    "weighted_score": 1.725,
+                    "spending_frequency": 0.75,
+                    "spending_amount": 12614.00,
+                    "transaction_consistency": 0.8,
+                    "spending_level": "medium_high"
+                  },
+                  "risk_score": {
+                    "score": 3.2,
+                    "weight": 0.15,
+                    "weighted_score": 0.48,
+                    "risk_level": "low",
+                    "behavior_risk": 15.0,
+                    "financial_risk": 25.0,
+                    "addiction_risk": 10.0,
+                    "risk_factors": ["Occasional late night gaming"]
+                  },
+                  "profitability_score": {
+                    "score": 8.1,
+                    "weight": 0.15,
+                    "weighted_score": 1.215,
+                    "revenue_contribution": 2845.50,
+                    "profit_margin": 0.225,
+                    "roi": 1.85,
+                    "profitability_level": "high"
+                  }
+                },
+                "trend_analysis": {
+                  "score_trend": "increasing",
+                  "trend_percentage": 12.5,
+                  "monthly_scores": [6.8, 7.1, 7.5],
+                  "prediction_confidence": 0.85
+                },
+                "competitor_analysis": {
+                  "percentile_rank": 78,
+                  "similar_players": 156,
+                  "ranking_position": 34,
+                  "performance_vs_avg": 1.32
+                },
+                "retention_risk": {
+                  "risk_level": "low",
+                  "risk_percentage": 15.5,
+                  "risk_factors": ["Stable engagement pattern"],
+                  "retention_probability": 0.845
+                },
+                "value_potential": {
+                  "growth_potential": "high",
+                  "potential_score": 8.9,
+                  "growth_factors": ["Increasing spending trend", "High loyalty"],
+                  "investment_recommendation": "priority"
+                },
+                "recommendations": [
+                  "提供VIP服務以維持高價值玩家地位",
+                  "增加個人化遊戲推薦以提升黏性",
+                  "定期提供專屬優惠和活動"
+                ],
+                "summary": "該玩家屬於高價值客戶群體，具有穩定的活躍度和忠誠度，消費能力良好，風險程度較低，盈利貢獻度高。建議重點維護並提供優質服務。"
+              },
+              "timestamp": "2024-12-19 15:35:00"
+            }
+          },
+          "400": {
+            "description": "請求參數錯誤",
+            "content": {
+              "success": false,
+              "message": "Invalid time range",
+              "error_code": "INVALID_TIME_RANGE"
+            }
+          },
+          "401": {
+            "description": "未授權",
+            "content": {
+              "success": false,
+              "message": "Unauthorized",
+              "error_code": "UNAUTHORIZED"
+            }
+          },
+          "404": {
+            "description": "玩家不存在",
+            "content": {
+              "success": false,
+              "message": "Player not found",
+              "error_code": "PLAYER_NOT_FOUND"
+            }
+          },
+          "500": {
+            "description": "伺服器內部錯誤",
+            "content": {
+              "success": false,
+              "message": "Value score calculation failed",
+              "error_code": "SCORE_CALCULATION_ERROR"
+            }
+          }
+        }
+      }
+    },
     "common_responses": {
       "error_format": {
         "success": false,

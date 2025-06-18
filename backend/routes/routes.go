@@ -30,6 +30,14 @@ func SetupRoutes(r *gin.Engine) {
 			auth.GET("/profile", authController.GetProfile)
 		}
 
+		// 暫時開放的路由（用於開發測試）
+		// TODO: 之後移回需要身份驗證的群組
+		players := v1.Group("/players")
+		playerController := controllers.NewPlayerController()
+		{
+			players.GET("/", playerController.GetPlayers) // 暫時開放
+		}
+
 		// 需要身份驗證的路由
 		authenticated := v1.Group("/")
 		authMiddleware := controllers.NewAuthController().AuthMiddleware()
@@ -47,42 +55,43 @@ func SetupRoutes(r *gin.Engine) {
 			}
 
 			// 玩家管理路由
-			players := authenticated.Group("/players")
-			playerController := controllers.NewPlayerController()
+			playersAuth := authenticated.Group("/players")
+			playerController2 := controllers.NewPlayerController()
 			{
-				players.GET("/", playerController.GetPlayers)
-				players.GET("/:id", playerController.GetPlayer)
-				players.GET("/:id/games", playerController.GetPlayerGameHistory) // 新增：玩家遊戲歷史
-				players.GET("/search", playerController.SearchPlayers)
-				players.GET("/filter", playerController.FilterPlayers)
-				players.POST("/", playerController.CreatePlayer)
-				players.PUT("/:id", playerController.UpdatePlayer)
-				players.DELETE("/:id", playerController.DeletePlayer)
-				players.PUT("/:id/status", playerController.UpdatePlayerStatus)
+				// players.GET("/", playerController.GetPlayers) // 已移到上方開放路由
+				playersAuth.GET("/:id", playerController2.GetPlayer)
+				playersAuth.GET("/:id/games", playerController2.GetPlayerGameHistory) // 新增：玩家遊戲歷史
+				playersAuth.GET("/search", playerController2.SearchPlayers)
+				playersAuth.GET("/filter", playerController2.FilterPlayers)
+				playersAuth.POST("/", playerController2.CreatePlayer)
+				playersAuth.PUT("/:id", playerController2.UpdatePlayer)
+				playersAuth.DELETE("/:id", playerController2.DeletePlayer)
+				playersAuth.PUT("/:id/status", playerController2.UpdatePlayerStatus)
 
 				// 玩家點數管理
-				players.GET("/:id/balance", playerController.GetPlayerBalance)
-				players.POST("/:id/deposit", playerController.DepositPlayerBalance)
-				players.POST("/:id/withdraw", playerController.WithdrawPlayerBalance)
-				players.GET("/:id/transactions", playerController.GetPlayerTransactions)
+				playersAuth.GET("/:id/balance", playerController2.GetPlayerBalance)
+				playersAuth.POST("/:id/deposit", playerController2.DepositPlayerBalance)
+				playersAuth.POST("/:id/withdraw", playerController2.WithdrawPlayerBalance)
+				playersAuth.GET("/:id/transactions", playerController2.GetPlayerTransactions)
 
 				// 玩家限制管理
-				players.POST("/:id/restrictions", playerController.SetPlayerRestriction)
-				players.GET("/:id/restrictions", playerController.GetPlayerRestrictions)
-				players.DELETE("/:id/restrictions/:restriction_id", playerController.RemovePlayerRestriction)
+				playersAuth.POST("/:id/restrictions", playerController2.SetPlayerRestriction)
+				playersAuth.GET("/:id/restrictions", playerController2.GetPlayerRestrictions)
+				playersAuth.DELETE("/:id/restrictions/:restriction_id", playerController2.RemovePlayerRestriction)
 
 				// 玩家風險評估
-				players.POST("/:id/risk-assessment", playerController.AssessPlayerRisk)
-				players.GET("/:id/risk-history", playerController.GetPlayerRiskHistory)
+				playersAuth.POST("/:id/risk-assessment", playerController2.AssessPlayerRisk)
+				playersAuth.GET("/:id/risk-history", playerController2.GetPlayerRiskHistory)
 
 				// 玩家註銷功能
-				players.POST("/:id/deactivate", playerController.DeactivatePlayer)
-				players.GET("/:id/deactivation-history", playerController.GetPlayerDeactivationHistory)
+				playersAuth.POST("/:id/deactivate", playerController2.DeactivatePlayer)
+				playersAuth.GET("/:id/deactivation-history", playerController2.GetPlayerDeactivationHistory)
 
 				// 玩家行為分析
-				players.POST("/:id/behavior-analysis", playerController.AnalyzePlayerBehavior)
-				players.POST("/:id/game-preference", playerController.AnalyzePlayerGamePreference)
-				players.POST("/:id/spending-habits", playerController.AnalyzePlayerSpendingHabits)
+				playersAuth.POST("/:id/behavior-analysis", playerController2.AnalyzePlayerBehavior)
+				playersAuth.POST("/:id/game-preference", playerController2.AnalyzePlayerGamePreference)
+				playersAuth.POST("/:id/spending-habits", playerController2.AnalyzePlayerSpendingHabits)
+				playersAuth.POST("/:id/value-score", playerController2.CalculatePlayerValueScore)
 			}
 
 			// 遊戲管理路由

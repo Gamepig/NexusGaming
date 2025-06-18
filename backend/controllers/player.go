@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"nexus-gaming-backend/config"
@@ -25,18 +26,18 @@ func NewPlayerController() *PlayerController {
 
 // PlayerListRequest 玩家列表查詢請求
 type PlayerListRequest struct {
-	Page              int    `form:"page" binding:"min=1"`                                                             // 頁碼，從1開始
-	Limit             int    `form:"limit" binding:"min=1,max=100"`                                                    // 每頁數量，最大100
-	Sort              string `form:"sort" binding:"oneof=id username email created_at updated_at total_bet total_win"` // 排序字段
-	Order             string `form:"order" binding:"oneof=asc desc"`                                                   // 排序順序
-	Search            string `form:"search"`                                                                           // 搜尋關鍵字（姓名、用戶名、郵箱）
-	Status            string `form:"status" binding:"omitempty,oneof=active inactive suspended deleted"`               // 狀態篩選
-	StartDate         string `form:"start_date"`                                                                       // 註冊開始日期 (YYYY-MM-DD)
-	EndDate           string `form:"end_date"`                                                                         // 註冊結束日期 (YYYY-MM-DD)
-	MinBalance        string `form:"min_balance"`                                                                      // 最小餘額
-	MaxBalance        string `form:"max_balance"`                                                                      // 最大餘額
-	VerificationLevel string `form:"verification_level" binding:"omitempty,oneof=none email phone identity"`           // 驗證等級
-	RiskLevel         string `form:"risk_level" binding:"omitempty,oneof=low medium high"`                             // 風險等級
+	Page              int    `form:"page"`                                                                                       // 頁碼，從1開始
+	Limit             int    `form:"limit"`                                                                                      // 每頁數量，最大100
+	Sort              string `form:"sort" binding:"omitempty,oneof=id username email created_at updated_at total_bet total_win"` // 排序字段
+	Order             string `form:"order" binding:"omitempty,oneof=asc desc"`                                                   // 排序順序
+	Search            string `form:"search"`                                                                                     // 搜尋關鍵字（姓名、用戶名、郵箱）
+	Status            string `form:"status" binding:"omitempty,oneof=active inactive suspended deleted"`                         // 狀態篩選
+	StartDate         string `form:"start_date"`                                                                                 // 註冊開始日期 (YYYY-MM-DD)
+	EndDate           string `form:"end_date"`                                                                                   // 註冊結束日期 (YYYY-MM-DD)
+	MinBalance        string `form:"min_balance"`                                                                                // 最小餘額
+	MaxBalance        string `form:"max_balance"`                                                                                // 最大餘額
+	VerificationLevel string `form:"verification_level" binding:"omitempty,oneof=none email phone identity"`                     // 驗證等級
+	RiskLevel         string `form:"risk_level" binding:"omitempty,oneof=low medium high"`                                       // 風險等級
 }
 
 // PlayerWithBalance 玩家資料（包含餘額）
@@ -226,6 +227,139 @@ type GraphDataPoint struct {
 	Label string      `json:"label"`
 	Value interface{} `json:"value"` // 可以是數字或物件
 	Color string      `json:"color,omitempty"`
+}
+
+// PlayerValueScoreRequest 玩家價值評分請求
+type PlayerValueScoreRequest struct {
+	TimeRange      string             `json:"time_range" binding:"required,oneof=30d 90d 180d 365d"` // 評分時間範圍
+	IncludeDetails *bool              `json:"include_details"`                                       // 是否包含詳細分析（預設true）
+	WeightConfig   *ScoreWeightConfig `json:"weight_config"`                                         // 自定義權重配置
+}
+
+// ScoreWeightConfig 評分權重配置
+type ScoreWeightConfig struct {
+	ActivityWeight      float64 `json:"activity_weight"`      // 活躍度權重 (0-1)
+	LoyaltyWeight       float64 `json:"loyalty_weight"`       // 忠誠度權重 (0-1)
+	SpendingWeight      float64 `json:"spending_weight"`      // 消費力權重 (0-1)
+	RiskWeight          float64 `json:"risk_weight"`          // 風險權重 (0-1)
+	ProfitabilityWeight float64 `json:"profitability_weight"` // 盈利性權重 (0-1)
+}
+
+// PlayerValueScoreResponse 玩家價值評分回應
+type PlayerValueScoreResponse struct {
+	PlayerID           int64                    `json:"player_id"`
+	Username           string                   `json:"username"`
+	AnalysisDate       string                   `json:"analysis_date"`
+	TimeRange          string                   `json:"time_range"`
+	OverallScore       float64                  `json:"overall_score"`       // 總體價值評分 (0-100)
+	ValueCategory      string                   `json:"value_category"`      // 價值類別：VIP, High, Medium, Low
+	ActivityScore      PlayerActivityScore      `json:"activity_score"`      // 活躍度評分
+	LoyaltyScore       PlayerLoyaltyScore       `json:"loyalty_score"`       // 忠誠度評分
+	SpendingScore      PlayerSpendingScore      `json:"spending_score"`      // 消費力評分
+	RiskScore          PlayerRiskScore          `json:"risk_score"`          // 風險評分
+	ProfitabilityScore PlayerProfitabilityScore `json:"profitability_score"` // 盈利性評分
+	TrendAnalysis      ValueTrendAnalysis       `json:"trend_analysis"`      // 趨勢分析
+	Recommendations    []string                 `json:"recommendations"`     // 針對性建議
+	CompetitorAnalysis CompetitorAnalysis       `json:"competitor_analysis"` // 同類玩家比較
+	RetentionRisk      RetentionRiskAnalysis    `json:"retention_risk"`      // 留存風險分析
+	ValuePotential     ValuePotentialAnalysis   `json:"value_potential"`     // 價值潛力分析
+}
+
+// PlayerActivityScore 活躍度評分
+type PlayerActivityScore struct {
+	Score             float64 `json:"score"`              // 活躍度評分 (0-100)
+	LoginFrequency    float64 `json:"login_frequency"`    // 登入頻率分數
+	GameParticipation float64 `json:"game_participation"` // 遊戲參與分數
+	SessionDuration   float64 `json:"session_duration"`   // 會話時長分數
+	ConsistencyLevel  string  `json:"consistency_level"`  // 一致性等級
+	EngagementTrend   string  `json:"engagement_trend"`   // 參與度趨勢
+	LastActivityDays  int     `json:"last_activity_days"` // 最後活動天數
+}
+
+// PlayerLoyaltyScore 忠誠度評分
+type PlayerLoyaltyScore struct {
+	Score             float64 `json:"score"`              // 忠誠度評分 (0-100)
+	TenureScore       float64 `json:"tenure_score"`       // 在平台時間分數
+	GameLoyalty       float64 `json:"game_loyalty"`       // 遊戲忠誠度
+	BrandLoyalty      float64 `json:"brand_loyalty"`      // 品牌忠誠度
+	ChurnProbability  float64 `json:"churn_probability"`  // 流失概率 (0-1)
+	RetentionCategory string  `json:"retention_category"` // 留存類別
+	LoyaltyTrend      string  `json:"loyalty_trend"`      // 忠誠度趨勢
+}
+
+// PlayerSpendingScore 消費力評分
+type PlayerSpendingScore struct {
+	Score              float64 `json:"score"`               // 消費力評分 (0-100)
+	SpendingVolume     float64 `json:"spending_volume"`     // 消費量分數
+	SpendingFrequency  float64 `json:"spending_frequency"`  // 消費頻率分數
+	SpendingStability  float64 `json:"spending_stability"`  // 消費穩定性分數
+	SpendingGrowth     float64 `json:"spending_growth"`     // 消費增長率
+	PaymentReliability float64 `json:"payment_reliability"` // 支付可靠性
+	SpendingCategory   string  `json:"spending_category"`   // 消費類別
+}
+
+// PlayerRiskScore 風險評分
+type PlayerRiskScore struct {
+	Score          float64  `json:"score"`           // 風險評分 (0-100，越低越好)
+	BehaviorRisk   float64  `json:"behavior_risk"`   // 行為風險
+	FinancialRisk  float64  `json:"financial_risk"`  // 財務風險
+	ComplianceRisk float64  `json:"compliance_risk"` // 合規風險
+	FraudRisk      float64  `json:"fraud_risk"`      // 詐騙風險
+	RiskCategory   string   `json:"risk_category"`   // 風險類別
+	RiskFactors    []string `json:"risk_factors"`    // 風險因素清單
+}
+
+// PlayerProfitabilityScore 盈利性評分
+type PlayerProfitabilityScore struct {
+	Score               float64 `json:"score"`                // 盈利性評分 (0-100)
+	RevenueContribution float64 `json:"revenue_contribution"` // 收入貢獻分數
+	ProfitMargin        float64 `json:"profit_margin"`        // 利潤率
+	LifetimeValue       float64 `json:"lifetime_value"`       // 生命週期價值
+	ROIScore            float64 `json:"roi_score"`            // 投資回報率分數
+	ProfitabilityTrend  string  `json:"profitability_trend"`  // 盈利性趨勢
+}
+
+// ValueTrendAnalysis 價值趨勢分析
+type ValueTrendAnalysis struct {
+	CurrentVsPrevious float64             `json:"current_vs_previous"` // 與上期比較
+	TrendDirection    string              `json:"trend_direction"`     // 趨勢方向
+	VolatilityLevel   string              `json:"volatility_level"`    // 波動性水準
+	ScoreHistory      []ValueScoreHistory `json:"score_history"`       // 評分歷史
+	PredictedScore    float64             `json:"predicted_score"`     // 預測評分
+	ConfidenceLevel   float64             `json:"confidence_level"`    // 預測信心度
+}
+
+// ValueScoreHistory 價值評分歷史
+type ValueScoreHistory struct {
+	Date  string  `json:"date"`
+	Score float64 `json:"score"`
+}
+
+// CompetitorAnalysis 同類玩家比較
+type CompetitorAnalysis struct {
+	Percentile           float64  `json:"percentile"`            // 百分位數
+	AboveAverageAreas    []string `json:"above_average_areas"`   // 高於平均的領域
+	BelowAverageAreas    []string `json:"below_average_areas"`   // 低於平均的領域
+	SimilarPlayers       int      `json:"similar_players"`       // 相似玩家數量
+	CompetitiveAdvantage string   `json:"competitive_advantage"` // 競爭優勢
+}
+
+// RetentionRiskAnalysis 留存風險分析
+type RetentionRiskAnalysis struct {
+	RiskLevel        string   `json:"risk_level"`        // 風險等級
+	ChurnProbability float64  `json:"churn_probability"` // 流失概率
+	DaysToChurn      int      `json:"days_to_churn"`     // 預計流失天數
+	RetentionActions []string `json:"retention_actions"` // 留存行動建議
+	CriticalFactors  []string `json:"critical_factors"`  // 關鍵影響因素
+}
+
+// ValuePotentialAnalysis 價值潛力分析
+type ValuePotentialAnalysis struct {
+	GrowthPotential     string   `json:"growth_potential"`      // 成長潛力
+	UpsellOpportunities []string `json:"upsell_opportunities"`  // 升級銷售機會
+	OptimizationAreas   []string `json:"optimization_areas"`    // 優化領域
+	MaxPotentialScore   float64  `json:"max_potential_score"`   // 最大潛在評分
+	TimeToMaxPotential  int      `json:"time_to_max_potential"` // 達到最大潛力時間
 }
 
 // AnalyzePlayerBehavior 分析玩家行為模式 (任務 2.5.1)
@@ -1451,7 +1585,1021 @@ func (pc *PlayerController) generateSpendingRecommendations(analysis interface{}
 
 // generateSpendingSummary 生成消費習慣分析總結
 func (pc *PlayerController) generateSpendingSummary(analysis interface{}) string {
-	return "玩家消費習慣分析已完成。該分析包含消費頻率、金額模式、時間分布、管道偏好、風險評估和消費能力等多個維度的深入分析，為制定個人化服務策略提供了數據支持。"
+	return "玩家消費習態分析已完成。該分析包含消費頻率、金額模式、時間分布、管道偏好、風險評估和消費能力等多個維度的深入分析，為制定個人化服務策略提供了數據支持。"
+}
+
+// CalculatePlayerValueScore 計算玩家價值評分 (任務 2.5.4)
+func (pc *PlayerController) CalculatePlayerValueScore(c *gin.Context) {
+	// 取得玩家ID
+	playerIDStr := c.Param("id")
+	playerID, err := strconv.ParseInt(playerIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid player ID",
+			"message": "玩家ID格式錯誤",
+		})
+		return
+	}
+
+	// 解析請求參數
+	var req PlayerValueScoreRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		// 設定預設值
+		req.TimeRange = "90d"
+		includeDetails := true
+		req.IncludeDetails = &includeDetails
+	}
+
+	// 設定預設權重配置
+	if req.WeightConfig == nil {
+		req.WeightConfig = &ScoreWeightConfig{
+			ActivityWeight:      0.25,
+			LoyaltyWeight:       0.20,
+			SpendingWeight:      0.25,
+			RiskWeight:          0.10,
+			ProfitabilityWeight: 0.20,
+		}
+	}
+
+	// 資料庫連接
+	db := config.GetDB()
+
+	// 檢查玩家是否存在
+	var username string
+	err = db.QueryRow("SELECT username FROM players WHERE id = ?", playerID).Scan(&username)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":   "Player not found",
+				"message": "找不到指定的玩家",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Database error",
+			"message": "資料庫查詢錯誤",
+		})
+		return
+	}
+
+	// 執行價值評分分析
+	analysis, err := pc.performPlayerValueScoreAnalysis(db, playerID, username, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Analysis failed",
+			"message": "價值評分分析失敗: " + err.Error(),
+		})
+		return
+	}
+
+	// 儲存分析結果
+	if err := pc.savePlayerValueScoreAnalysis(db, playerID, analysis); err != nil {
+		// 記錄錯誤但不影響回應
+		fmt.Printf("Failed to save value score analysis: %v\n", err)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "玩家價值評分分析完成",
+		"data":    analysis,
+	})
+}
+
+// performPlayerValueScoreAnalysis 執行玩家價值評分分析
+func (pc *PlayerController) performPlayerValueScoreAnalysis(db *sql.DB, playerID int64, username string, req PlayerValueScoreRequest) (*PlayerValueScoreResponse, error) {
+	// 解析時間範圍
+	endDate := time.Now()
+	var startDate time.Time
+	switch req.TimeRange {
+	case "30d":
+		startDate = endDate.AddDate(0, 0, -30)
+	case "90d":
+		startDate = endDate.AddDate(0, 0, -90)
+	case "180d":
+		startDate = endDate.AddDate(0, 0, -180)
+	case "365d":
+		startDate = endDate.AddDate(0, -12, 0)
+	default:
+		startDate = endDate.AddDate(0, 0, -90)
+	}
+
+	// 建立回應結構
+	response := &PlayerValueScoreResponse{
+		PlayerID:     playerID,
+		Username:     username,
+		AnalysisDate: endDate.Format("2006-01-02 15:04:05"),
+		TimeRange:    req.TimeRange,
+	}
+
+	// 計算各項評分
+	var err error
+
+	// 1. 計算活躍度評分
+	response.ActivityScore, err = pc.calculateActivityScore(db, playerID, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("計算活躍度評分失敗: %v", err)
+	}
+
+	// 2. 計算忠誠度評分
+	response.LoyaltyScore, err = pc.calculateLoyaltyScore(db, playerID, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("計算忠誠度評分失敗: %v", err)
+	}
+
+	// 3. 計算消費力評分
+	response.SpendingScore, err = pc.calculateSpendingScore(db, playerID, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("計算消費力評分失敗: %v", err)
+	}
+
+	// 4. 計算風險評分
+	response.RiskScore, err = pc.calculateRiskScore(db, playerID, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("計算風險評分失敗: %v", err)
+	}
+
+	// 5. 計算盈利性評分
+	response.ProfitabilityScore, err = pc.calculateProfitabilityScore(db, playerID, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("計算盈利性評分失敗: %v", err)
+	}
+
+	// 6. 計算總體評分
+	response.OverallScore = pc.calculateOverallScore(response, req.WeightConfig)
+	response.ValueCategory = pc.determineValueCategory(response.OverallScore)
+
+	// 7. 趨勢分析
+	response.TrendAnalysis, err = pc.analyzeTrends(db, playerID, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("趨勢分析失敗: %v", err)
+	}
+
+	// 8. 同類玩家比較
+	response.CompetitorAnalysis, err = pc.performCompetitorAnalysis(db, playerID, response.OverallScore)
+	if err != nil {
+		return nil, fmt.Errorf("同類玩家比較失敗: %v", err)
+	}
+
+	// 9. 留存風險分析
+	response.RetentionRisk = pc.analyzeRetentionRisk(response)
+
+	// 10. 價值潛力分析
+	response.ValuePotential = pc.analyzeValuePotential(response)
+
+	// 11. 生成建議
+	response.Recommendations = pc.generateValueRecommendations(response)
+
+	return response, nil
+}
+
+// calculateActivityScore 計算活躍度評分
+func (pc *PlayerController) calculateActivityScore(db *sql.DB, playerID int64, startDate, endDate time.Time) (PlayerActivityScore, error) {
+	var score PlayerActivityScore
+
+	// 計算登入頻率分數
+	loginQuery := `
+		SELECT COUNT(DISTINCT DATE(created_at)) as login_days,
+		       COUNT(*) as total_logins
+		FROM user_sessions 
+		WHERE player_id = ? AND created_at BETWEEN ? AND ?`
+
+	var loginDays, totalLogins int
+	err := db.QueryRow(loginQuery, playerID, startDate, endDate).Scan(&loginDays, &totalLogins)
+	if err != nil && err != sql.ErrNoRows {
+		return score, err
+	}
+
+	totalDays := int(endDate.Sub(startDate).Hours() / 24)
+	if totalDays > 0 {
+		score.LoginFrequency = math.Min(float64(loginDays)/float64(totalDays)*100, 100)
+	}
+
+	// 計算遊戲參與分數
+	gameQuery := `
+		SELECT COUNT(*) as total_games,
+		       COALESCE(AVG(TIMESTAMPDIFF(MINUTE, created_at, updated_at)), 0) as avg_session
+		FROM game_sessions 
+		WHERE player_id = ? AND created_at BETWEEN ? AND ?`
+
+	var totalGames int
+	var avgSession float64
+	err = db.QueryRow(gameQuery, playerID, startDate, endDate).Scan(&totalGames, &avgSession)
+	if err != nil && err != sql.ErrNoRows {
+		return score, err
+	}
+
+	// 遊戲參與度分數 (基於遊戲次數)
+	score.GameParticipation = math.Min(float64(totalGames)/30*100, 100) // 假設30場為滿分
+
+	// 會話時長分數
+	score.SessionDuration = math.Min(avgSession/60*100, 100) // 假設60分鐘為滿分
+
+	// 計算最後活動天數
+	lastActivityQuery := `
+		SELECT DATEDIFF(NOW(), MAX(last_login)) as days_since_last_activity
+		FROM players 
+		WHERE id = ?`
+
+	err = db.QueryRow(lastActivityQuery, playerID).Scan(&score.LastActivityDays)
+	if err != nil && err != sql.ErrNoRows {
+		score.LastActivityDays = 999 // 預設值
+	}
+
+	// 一致性等級判斷
+	if loginDays >= int(float64(totalDays)*0.8) {
+		score.ConsistencyLevel = "high"
+	} else if loginDays >= int(float64(totalDays)*0.5) {
+		score.ConsistencyLevel = "medium"
+	} else {
+		score.ConsistencyLevel = "low"
+	}
+
+	// 參與度趨勢 (簡化版)
+	if score.LastActivityDays <= 3 {
+		score.EngagementTrend = "increasing"
+	} else if score.LastActivityDays <= 7 {
+		score.EngagementTrend = "stable"
+	} else {
+		score.EngagementTrend = "decreasing"
+	}
+
+	// 計算總體活躍度評分
+	score.Score = (score.LoginFrequency*0.4 + score.GameParticipation*0.4 + score.SessionDuration*0.2)
+
+	return score, nil
+}
+
+// calculateLoyaltyScore 計算忠誠度評分
+func (pc *PlayerController) calculateLoyaltyScore(db *sql.DB, playerID int64, startDate, endDate time.Time) (PlayerLoyaltyScore, error) {
+	var score PlayerLoyaltyScore
+
+	// 計算在平台時間
+	tenureQuery := `
+		SELECT DATEDIFF(NOW(), created_at) as tenure_days
+		FROM players 
+		WHERE id = ?`
+
+	var tenureDays int
+	err := db.QueryRow(tenureQuery, playerID).Scan(&tenureDays)
+	if err != nil {
+		return score, err
+	}
+
+	// 在平台時間分數 (假設365天為滿分)
+	score.TenureScore = math.Min(float64(tenureDays)/365*100, 100)
+
+	// 遊戲忠誠度 (基於遊戲類型的專注度)
+	gameTypesQuery := `
+		SELECT COUNT(DISTINCT game_type) as unique_games,
+		       COUNT(*) as total_games
+		FROM game_sessions 
+		WHERE player_id = ? AND created_at BETWEEN ? AND ?`
+
+	var uniqueGames, totalGames int
+	err = db.QueryRow(gameTypesQuery, playerID, startDate, endDate).Scan(&uniqueGames, &totalGames)
+	if err != nil && err != sql.ErrNoRows {
+		uniqueGames = 1
+		totalGames = 1
+	}
+
+	if uniqueGames > 0 && totalGames > 0 {
+		// 專注度越高，忠誠度越高
+		diversityRatio := float64(uniqueGames) / float64(totalGames)
+		score.GameLoyalty = math.Max(100-(diversityRatio*100), 0)
+	}
+
+	// 品牌忠誠度 (基於活動參與和停留時間)
+	activeDays := float64(endDate.Sub(startDate).Hours() / 24)
+	if activeDays > 0 {
+		score.BrandLoyalty = math.Min((float64(totalGames)/activeDays)*100, 100)
+	}
+
+	// 流失概率計算 (簡化版)
+	if score.TenureScore > 80 && totalGames > 50 {
+		score.ChurnProbability = 0.1 // 低流失風險
+		score.RetentionCategory = "loyal"
+	} else if score.TenureScore > 50 && totalGames > 20 {
+		score.ChurnProbability = 0.3 // 中等流失風險
+		score.RetentionCategory = "regular"
+	} else {
+		score.ChurnProbability = 0.6 // 高流失風險
+		score.RetentionCategory = "new"
+	}
+
+	// 忠誠度趨勢
+	if score.ChurnProbability < 0.3 {
+		score.LoyaltyTrend = "stable"
+	} else {
+		score.LoyaltyTrend = "declining"
+	}
+
+	// 計算總體忠誠度評分
+	score.Score = (score.TenureScore*0.4 + score.GameLoyalty*0.3 + score.BrandLoyalty*0.3)
+
+	return score, nil
+}
+
+// calculateSpendingScore 計算消費力評分
+func (pc *PlayerController) calculateSpendingScore(db *sql.DB, playerID int64, startDate, endDate time.Time) (PlayerSpendingScore, error) {
+	var score PlayerSpendingScore
+
+	// 計算總消費金額
+	spendingQuery := `
+		SELECT 
+			COALESCE(SUM(amount), 0) as total_spending,
+			COALESCE(COUNT(*), 0) as transaction_count,
+			COALESCE(AVG(amount), 0) as avg_spending
+		FROM transactions 
+		WHERE player_id = ? AND transaction_type = 'deposit' 
+		AND created_at BETWEEN ? AND ?`
+
+	var totalSpending, avgSpending float64
+	var transactionCount int
+	err := db.QueryRow(spendingQuery, playerID, startDate, endDate).Scan(&totalSpending, &transactionCount, &avgSpending)
+	if err != nil && err != sql.ErrNoRows {
+		return score, err
+	}
+
+	// 消費量分數 (基於總消費金額，假設10000為滿分基準)
+	score.SpendingVolume = math.Min(totalSpending/10000*100, 100)
+
+	// 消費頻率分數 (基於交易次數)
+	daysDiff := int(endDate.Sub(startDate).Hours() / 24)
+	if daysDiff > 0 {
+		frequency := float64(transactionCount) / float64(daysDiff) * 30 // 轉換為月頻率
+		score.SpendingFrequency = math.Min(frequency*10, 100)           // 假設每月3次為滿分
+	}
+
+	// 消費穩定性 (基於消費變異係數)
+	if transactionCount > 1 && avgSpending > 0 {
+		// 計算標準差
+		stdDevQuery := `
+			SELECT STDDEV(amount) as std_dev
+			FROM transactions 
+			WHERE player_id = ? AND transaction_type = 'deposit' 
+			AND created_at BETWEEN ? AND ?`
+
+		var stdDev float64
+		err = db.QueryRow(stdDevQuery, playerID, startDate, endDate).Scan(&stdDev)
+		if err == nil {
+			// 變異係數越小，穩定性越高
+			coefficientOfVariation := stdDev / avgSpending
+			score.SpendingStability = math.Max(100-(coefficientOfVariation*100), 0)
+		} else {
+			score.SpendingStability = 50 // 預設值
+		}
+	} else {
+		score.SpendingStability = 50
+	}
+
+	// 消費增長率計算
+	midDate := startDate.Add(endDate.Sub(startDate) / 2)
+	firstHalfQuery := `
+		SELECT COALESCE(SUM(amount), 0) 
+		FROM transactions 
+		WHERE player_id = ? AND transaction_type = 'deposit' 
+		AND created_at BETWEEN ? AND ?`
+
+	var firstHalfSpending, secondHalfSpending float64
+	db.QueryRow(firstHalfQuery, playerID, startDate, midDate).Scan(&firstHalfSpending)
+	db.QueryRow(firstHalfQuery, playerID, midDate, endDate).Scan(&secondHalfSpending)
+
+	if firstHalfSpending > 0 {
+		growthRate := (secondHalfSpending - firstHalfSpending) / firstHalfSpending * 100
+		score.SpendingGrowth = math.Max(math.Min(growthRate+50, 100), 0) // 正規化到0-100
+	} else {
+		score.SpendingGrowth = 50 // 預設值
+	}
+
+	// 支付可靠性 (基於成功支付率)
+	reliabilityQuery := `
+		SELECT 
+			COUNT(*) as total_attempts,
+			SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as successful_payments
+		FROM transactions 
+		WHERE player_id = ? AND transaction_type = 'deposit' 
+		AND created_at BETWEEN ? AND ?`
+
+	var totalAttempts, successfulPayments int
+	err = db.QueryRow(reliabilityQuery, playerID, startDate, endDate).Scan(&totalAttempts, &successfulPayments)
+	if err == nil && totalAttempts > 0 {
+		score.PaymentReliability = float64(successfulPayments) / float64(totalAttempts) * 100
+	} else {
+		score.PaymentReliability = 100 // 預設滿分
+	}
+
+	// 消費類別判斷
+	if totalSpending >= 5000 {
+		score.SpendingCategory = "high_spender"
+	} else if totalSpending >= 1000 {
+		score.SpendingCategory = "medium_spender"
+	} else if totalSpending > 0 {
+		score.SpendingCategory = "low_spender"
+	} else {
+		score.SpendingCategory = "non_spender"
+	}
+
+	// 計算總體消費力評分
+	score.Score = (score.SpendingVolume*0.3 + score.SpendingFrequency*0.2 +
+		score.SpendingStability*0.2 + score.SpendingGrowth*0.15 + score.PaymentReliability*0.15)
+
+	return score, nil
+}
+
+// calculateRiskScore 計算風險評分
+func (pc *PlayerController) calculateRiskScore(db *sql.DB, playerID int64, startDate, endDate time.Time) (PlayerRiskScore, error) {
+	var score PlayerRiskScore
+	var riskFactors []string
+
+	// 行為風險評估
+	behaviorRisk := 0.0
+
+	// 檢查異常登入模式
+	loginPatternQuery := `
+		SELECT COUNT(*) as login_count,
+		       COUNT(DISTINCT HOUR(created_at)) as unique_hours
+		FROM user_sessions 
+		WHERE player_id = ? AND created_at BETWEEN ? AND ?`
+
+	var loginCount, uniqueHours int
+	db.QueryRow(loginPatternQuery, playerID, startDate, endDate).Scan(&loginCount, &uniqueHours)
+
+	if uniqueHours > 20 { // 24小時內登入時間過於分散
+		behaviorRisk += 20
+		riskFactors = append(riskFactors, "異常登入時間模式")
+	}
+
+	// 檢查遊戲行為異常
+	gameRiskQuery := `
+		SELECT COUNT(*) as total_games,
+		       COALESCE(AVG(bet_amount), 0) as avg_bet,
+		       COALESCE(MAX(bet_amount), 0) as max_bet
+		FROM game_sessions 
+		WHERE player_id = ? AND created_at BETWEEN ? AND ?`
+
+	var totalGames int
+	var avgBet, maxBet float64
+	db.QueryRow(gameRiskQuery, playerID, startDate, endDate).Scan(&totalGames, &avgBet, &maxBet)
+
+	if avgBet > 0 && maxBet/avgBet > 10 { // 最大下注是平均的10倍以上
+		behaviorRisk += 25
+		riskFactors = append(riskFactors, "下注金額波動過大")
+	}
+
+	score.BehaviorRisk = math.Min(behaviorRisk, 100)
+
+	// 財務風險評估
+	financialRisk := 0.0
+
+	// 檢查資金來源異常
+	largeDepositQuery := `
+		SELECT COUNT(*) as large_deposits
+		FROM transactions 
+		WHERE player_id = ? AND transaction_type = 'deposit' 
+		AND amount > 10000 AND created_at BETWEEN ? AND ?`
+
+	var largeDeposits int
+	db.QueryRow(largeDepositQuery, playerID, startDate, endDate).Scan(&largeDeposits)
+
+	if largeDeposits > 5 {
+		financialRisk += 30
+		riskFactors = append(riskFactors, "頻繁大額充值")
+	}
+
+	// 檢查提款異常
+	withdrawalQuery := `
+		SELECT COUNT(*) as withdrawal_count,
+		       COALESCE(SUM(amount), 0) as total_withdrawal
+		FROM transactions 
+		WHERE player_id = ? AND transaction_type = 'withdraw' 
+		AND created_at BETWEEN ? AND ?`
+
+	var withdrawalCount int
+	var totalWithdrawal float64
+	db.QueryRow(withdrawalQuery, playerID, startDate, endDate).Scan(&withdrawalCount, &totalWithdrawal)
+
+	// 計算存提比例
+	depositQuery := `
+		SELECT COALESCE(SUM(amount), 0) as total_deposit
+		FROM transactions 
+		WHERE player_id = ? AND transaction_type = 'deposit' 
+		AND created_at BETWEEN ? AND ?`
+
+	var totalDeposit float64
+	db.QueryRow(depositQuery, playerID, startDate, endDate).Scan(&totalDeposit)
+
+	if totalDeposit > 0 && totalWithdrawal/totalDeposit > 0.9 {
+		financialRisk += 20
+		riskFactors = append(riskFactors, "高提款比例")
+	}
+
+	score.FinancialRisk = math.Min(financialRisk, 100)
+
+	// 合規風險評估 (簡化版)
+	complianceRisk := 0.0
+
+	// 檢查KYC狀態
+	kycQuery := `
+		SELECT verification_level 
+		FROM players 
+		WHERE id = ?`
+
+	var verificationLevel string
+	err := db.QueryRow(kycQuery, playerID).Scan(&verificationLevel)
+	if err == nil {
+		if verificationLevel == "none" {
+			complianceRisk += 40
+			riskFactors = append(riskFactors, "未完成身份驗證")
+		} else if verificationLevel == "email" {
+			complianceRisk += 20
+			riskFactors = append(riskFactors, "身份驗證等級較低")
+		}
+	}
+
+	score.ComplianceRisk = complianceRisk
+
+	// 詐騙風險評估
+	fraudRisk := 0.0
+
+	// 檢查重複IP或設備
+	deviceQuery := `
+		SELECT COUNT(DISTINCT ip_address) as unique_ips
+		FROM user_sessions 
+		WHERE player_id = ? AND created_at BETWEEN ? AND ?`
+
+	var uniqueIPs int
+	db.QueryRow(deviceQuery, playerID, startDate, endDate).Scan(&uniqueIPs)
+
+	if uniqueIPs > 10 { // IP地址過於分散
+		fraudRisk += 25
+		riskFactors = append(riskFactors, "IP地址異常分散")
+	}
+
+	score.FraudRisk = fraudRisk
+	score.RiskFactors = riskFactors
+
+	// 計算總體風險評分 (越低越好)
+	totalRisk := (score.BehaviorRisk + score.FinancialRisk + score.ComplianceRisk + score.FraudRisk) / 4
+	score.Score = totalRisk
+
+	// 風險類別判斷
+	if totalRisk >= 70 {
+		score.RiskCategory = "high_risk"
+	} else if totalRisk >= 40 {
+		score.RiskCategory = "medium_risk"
+	} else if totalRisk >= 20 {
+		score.RiskCategory = "low_risk"
+	} else {
+		score.RiskCategory = "minimal_risk"
+	}
+
+	return score, nil
+}
+
+// calculateProfitabilityScore 計算盈利性評分
+func (pc *PlayerController) calculateProfitabilityScore(db *sql.DB, playerID int64, startDate, endDate time.Time) (PlayerProfitabilityScore, error) {
+	var score PlayerProfitabilityScore
+
+	// 計算總收入貢獻 (平台從玩家獲得的收益)
+	revenueQuery := `
+		SELECT 
+			COALESCE(SUM(CASE WHEN transaction_type = 'deposit' THEN amount ELSE 0 END), 0) as total_deposits,
+			COALESCE(SUM(CASE WHEN transaction_type = 'withdraw' THEN amount ELSE 0 END), 0) as total_withdrawals,
+			COALESCE(SUM(CASE WHEN transaction_type = 'fee' THEN amount ELSE 0 END), 0) as total_fees
+		FROM transactions 
+		WHERE player_id = ? AND created_at BETWEEN ? AND ?`
+
+	var totalDeposits, totalWithdrawals, totalFees float64
+	err := db.QueryRow(revenueQuery, playerID, startDate, endDate).Scan(&totalDeposits, &totalWithdrawals, &totalFees)
+	if err != nil && err != sql.ErrNoRows {
+		return score, err
+	}
+
+	// 計算遊戲損失 (平台獲利)
+	gameRevenueQuery := `
+		SELECT 
+			COALESCE(SUM(bet_amount), 0) as total_bets,
+			COALESCE(SUM(win_amount), 0) as total_wins
+		FROM game_sessions 
+		WHERE player_id = ? AND created_at BETWEEN ? AND ?`
+
+	var totalBets, totalWins float64
+	err = db.QueryRow(gameRevenueQuery, playerID, startDate, endDate).Scan(&totalBets, &totalWins)
+	if err != nil && err != sql.ErrNoRows {
+		return score, err
+	}
+
+	// 計算平台淨收益
+	platformRevenue := (totalBets - totalWins) + totalFees
+
+	// 收入貢獻分數 (假設1000為滿分基準)
+	score.RevenueContribution = math.Min(platformRevenue/1000*100, 100)
+
+	// 利潤率計算
+	if totalDeposits > 0 {
+		score.ProfitMargin = (platformRevenue / totalDeposits) * 100
+		score.ProfitMargin = math.Min(math.Max(score.ProfitMargin, 0), 100)
+	}
+
+	// 生命週期價值計算 (簡化版)
+	tenureQuery := `
+		SELECT DATEDIFF(NOW(), created_at) as tenure_days
+		FROM players 
+		WHERE id = ?`
+
+	var tenureDays int
+	db.QueryRow(tenureQuery, playerID).Scan(&tenureDays)
+
+	if tenureDays > 0 {
+		dailyValue := platformRevenue / float64(tenureDays)
+		// 預測未來180天的價值
+		score.LifetimeValue = dailyValue * 180
+	}
+
+	// ROI評分
+	customerAcquisitionCost := 50.0 // 假設獲客成本為50元
+	if customerAcquisitionCost > 0 {
+		roi := (platformRevenue - customerAcquisitionCost) / customerAcquisitionCost * 100
+		score.ROIScore = math.Min(math.Max(roi+50, 0), 100) // 正規化到0-100
+	}
+
+	// 盈利性趨勢
+	midDate := startDate.Add(endDate.Sub(startDate) / 2)
+
+	var firstHalfRevenue, secondHalfRevenue float64
+	firstHalfQuery := `
+		SELECT COALESCE(SUM(bet_amount - win_amount), 0)
+		FROM game_sessions 
+		WHERE player_id = ? AND created_at BETWEEN ? AND ?`
+
+	db.QueryRow(firstHalfQuery, playerID, startDate, midDate).Scan(&firstHalfRevenue)
+	db.QueryRow(firstHalfQuery, playerID, midDate, endDate).Scan(&secondHalfRevenue)
+
+	if firstHalfRevenue > secondHalfRevenue {
+		score.ProfitabilityTrend = "decreasing"
+	} else if secondHalfRevenue > firstHalfRevenue {
+		score.ProfitabilityTrend = "increasing"
+	} else {
+		score.ProfitabilityTrend = "stable"
+	}
+
+	// 計算總體盈利性評分
+	score.Score = (score.RevenueContribution*0.4 + score.ProfitMargin*0.2 +
+		(math.Min(score.LifetimeValue/500*100, 100))*0.2 + score.ROIScore*0.2)
+
+	return score, nil
+}
+
+// calculateOverallScore 計算總體評分
+func (pc *PlayerController) calculateOverallScore(response *PlayerValueScoreResponse, weightConfig *ScoreWeightConfig) float64 {
+	// 確保權重總和為1
+	totalWeight := weightConfig.ActivityWeight + weightConfig.LoyaltyWeight +
+		weightConfig.SpendingWeight + weightConfig.RiskWeight + weightConfig.ProfitabilityWeight
+
+	if totalWeight == 0 {
+		totalWeight = 1.0
+	}
+
+	// 計算加權評分
+	overallScore := (response.ActivityScore.Score*weightConfig.ActivityWeight +
+		response.LoyaltyScore.Score*weightConfig.LoyaltyWeight +
+		response.SpendingScore.Score*weightConfig.SpendingWeight +
+		(100-response.RiskScore.Score)*weightConfig.RiskWeight + // 風險分數需要反轉
+		response.ProfitabilityScore.Score*weightConfig.ProfitabilityWeight) / totalWeight
+
+	return math.Min(math.Max(overallScore, 0), 100)
+}
+
+// determineValueCategory 確定價值類別
+func (pc *PlayerController) determineValueCategory(overallScore float64) string {
+	if overallScore >= 80 {
+		return "VIP"
+	} else if overallScore >= 60 {
+		return "High"
+	} else if overallScore >= 40 {
+		return "Medium"
+	} else {
+		return "Low"
+	}
+}
+
+// analyzeTrends 趨勢分析
+func (pc *PlayerController) analyzeTrends(db *sql.DB, playerID int64, startDate, endDate time.Time) (ValueTrendAnalysis, error) {
+	var trend ValueTrendAnalysis
+
+	// 計算歷史評分 (簡化版 - 比較前一期)
+	previousEndDate := startDate
+	previousStartDate := startDate.Add(endDate.Sub(startDate) * -1)
+
+	// 獲取前一期的活躍度
+	prevActivityScore, _ := pc.calculateActivityScore(db, playerID, previousStartDate, previousEndDate)
+	currentActivityScore, _ := pc.calculateActivityScore(db, playerID, startDate, endDate)
+
+	// 計算趨勢
+	scoreDiff := currentActivityScore.Score - prevActivityScore.Score
+	trend.CurrentVsPrevious = scoreDiff
+
+	// 趨勢方向
+	if scoreDiff > 5 {
+		trend.TrendDirection = "increasing"
+	} else if scoreDiff < -5 {
+		trend.TrendDirection = "decreasing"
+	} else {
+		trend.TrendDirection = "stable"
+	}
+
+	// 波動性計算 (簡化)
+	if math.Abs(scoreDiff) > 20 {
+		trend.VolatilityLevel = "high"
+	} else if math.Abs(scoreDiff) > 10 {
+		trend.VolatilityLevel = "medium"
+	} else {
+		trend.VolatilityLevel = "low"
+	}
+
+	// 評分歷史 (模擬數據)
+	trend.ScoreHistory = []ValueScoreHistory{
+		{Date: previousStartDate.Format("2006-01-02"), Score: prevActivityScore.Score},
+		{Date: startDate.Format("2006-01-02"), Score: currentActivityScore.Score},
+	}
+
+	// 預測評分 (簡化線性預測)
+	if len(trend.ScoreHistory) >= 2 {
+		recent := trend.ScoreHistory[len(trend.ScoreHistory)-1]
+		previous := trend.ScoreHistory[len(trend.ScoreHistory)-2]
+		trend.PredictedScore = recent.Score + (recent.Score - previous.Score)
+		trend.PredictedScore = math.Min(math.Max(trend.PredictedScore, 0), 100)
+	}
+
+	// 信心度
+	if trend.VolatilityLevel == "low" {
+		trend.ConfidenceLevel = 0.8
+	} else if trend.VolatilityLevel == "medium" {
+		trend.ConfidenceLevel = 0.6
+	} else {
+		trend.ConfidenceLevel = 0.4
+	}
+
+	return trend, nil
+}
+
+// performCompetitorAnalysis 同類玩家比較
+func (pc *PlayerController) performCompetitorAnalysis(db *sql.DB, playerID int64, overallScore float64) (CompetitorAnalysis, error) {
+	var analysis CompetitorAnalysis
+
+	// 計算百分位數
+	percentileQuery := `
+		SELECT COUNT(*) as lower_count,
+		       (SELECT COUNT(*) FROM players WHERE status = 'active') as total_count
+		FROM players p1
+		JOIN player_value_score_analysis pvsa ON p1.id = pvsa.player_id
+		WHERE p1.status = 'active' 
+		AND JSON_EXTRACT(pvsa.analysis_data, '$.overall_score') < ?
+		AND pvsa.created_at = (
+			SELECT MAX(created_at) 
+			FROM player_value_score_analysis 
+			WHERE player_id = p1.id
+		)`
+
+	var lowerCount, totalCount int
+	err := db.QueryRow(percentileQuery, overallScore).Scan(&lowerCount, &totalCount)
+	if err != nil && err != sql.ErrNoRows {
+		// 如果查詢失敗，使用預設值
+		if overallScore >= 80 {
+			analysis.Percentile = 95
+		} else if overallScore >= 60 {
+			analysis.Percentile = 75
+		} else if overallScore >= 40 {
+			analysis.Percentile = 50
+		} else {
+			analysis.Percentile = 25
+		}
+	} else if totalCount > 0 {
+		analysis.Percentile = float64(lowerCount) / float64(totalCount) * 100
+	}
+
+	// 高於平均的領域
+	if overallScore > 50 {
+		analysis.AboveAverageAreas = []string{"整體表現", "用戶價值"}
+	}
+
+	// 低於平均的領域
+	if overallScore < 50 {
+		analysis.BelowAverageAreas = []string{"需要改進的領域"}
+	}
+
+	// 相似玩家數量 (估算)
+	analysis.SimilarPlayers = int(float64(totalCount) * 0.1) // 假設10%為相似玩家
+
+	// 競爭優勢
+	if analysis.Percentile > 75 {
+		analysis.CompetitiveAdvantage = "高價值用戶，具有明顯競爭優勢"
+	} else if analysis.Percentile > 50 {
+		analysis.CompetitiveAdvantage = "中等價值用戶，有發展潛力"
+	} else {
+		analysis.CompetitiveAdvantage = "需要重點關注和培養"
+	}
+
+	return analysis, nil
+}
+
+// analyzeRetentionRisk 留存風險分析
+func (pc *PlayerController) analyzeRetentionRisk(response *PlayerValueScoreResponse) RetentionRiskAnalysis {
+	var risk RetentionRiskAnalysis
+
+	// 基於各項評分計算流失概率
+	churnScore := 0.0
+
+	// 活躍度影響
+	if response.ActivityScore.Score < 30 {
+		churnScore += 0.3
+	} else if response.ActivityScore.Score < 60 {
+		churnScore += 0.15
+	}
+
+	// 忠誠度影響
+	churnScore += response.LoyaltyScore.ChurnProbability * 0.4
+
+	// 消費力影響
+	if response.SpendingScore.Score < 20 {
+		churnScore += 0.2
+	}
+
+	// 風險評分影響
+	if response.RiskScore.Score > 60 {
+		churnScore += 0.1
+	}
+
+	risk.ChurnProbability = math.Min(churnScore, 1.0)
+
+	// 風險等級
+	if risk.ChurnProbability > 0.7 {
+		risk.RiskLevel = "high"
+		risk.DaysToChurn = 30
+	} else if risk.ChurnProbability > 0.4 {
+		risk.RiskLevel = "medium"
+		risk.DaysToChurn = 90
+	} else {
+		risk.RiskLevel = "low"
+		risk.DaysToChurn = 180
+	}
+
+	// 留存行動建議
+	if risk.RiskLevel == "high" {
+		risk.RetentionActions = []string{
+			"立即進行客戶關懷",
+			"提供個人化優惠",
+			"安排客戶經理聯繫",
+		}
+	} else if risk.RiskLevel == "medium" {
+		risk.RetentionActions = []string{
+			"增加互動頻率",
+			"推薦適合的活動",
+			"監控行為變化",
+		}
+	} else {
+		risk.RetentionActions = []string{
+			"保持現有服務水準",
+			"定期關注動態",
+		}
+	}
+
+	// 關鍵影響因素
+	if response.ActivityScore.Score < 40 {
+		risk.CriticalFactors = append(risk.CriticalFactors, "活躍度下降")
+	}
+	if response.LoyaltyScore.ChurnProbability > 0.5 {
+		risk.CriticalFactors = append(risk.CriticalFactors, "忠誠度不足")
+	}
+	if response.SpendingScore.Score < 30 {
+		risk.CriticalFactors = append(risk.CriticalFactors, "消費力偏低")
+	}
+
+	return risk
+}
+
+// analyzeValuePotential 價值潛力分析
+func (pc *PlayerController) analyzeValuePotential(response *PlayerValueScoreResponse) ValuePotentialAnalysis {
+	var potential ValuePotentialAnalysis
+
+	// 成長潛力評估
+	growthFactors := 0
+	if response.ActivityScore.EngagementTrend == "increasing" {
+		growthFactors++
+	}
+	if response.LoyaltyScore.LoyaltyTrend == "stable" {
+		growthFactors++
+	}
+	if response.SpendingScore.SpendingGrowth > 60 {
+		growthFactors++
+	}
+	if response.ProfitabilityScore.ProfitabilityTrend == "increasing" {
+		growthFactors++
+	}
+
+	if growthFactors >= 3 {
+		potential.GrowthPotential = "high"
+	} else if growthFactors >= 2 {
+		potential.GrowthPotential = "medium"
+	} else {
+		potential.GrowthPotential = "low"
+	}
+
+	// 升級銷售機會
+	if response.SpendingScore.SpendingCategory == "low_spender" && response.ActivityScore.Score > 60 {
+		potential.UpsellOpportunities = append(potential.UpsellOpportunities, "提升消費等級")
+	}
+	if response.LoyaltyScore.Score > 70 {
+		potential.UpsellOpportunities = append(potential.UpsellOpportunities, "VIP服務推廣")
+	}
+
+	// 優化領域
+	if response.ActivityScore.Score < 60 {
+		potential.OptimizationAreas = append(potential.OptimizationAreas, "提升用戶活躍度")
+	}
+	if response.SpendingScore.Score < 50 {
+		potential.OptimizationAreas = append(potential.OptimizationAreas, "促進消費行為")
+	}
+	if response.RiskScore.Score > 40 {
+		potential.OptimizationAreas = append(potential.OptimizationAreas, "降低風險等級")
+	}
+
+	// 最大潛在評分
+	potential.MaxPotentialScore = math.Min(response.OverallScore+30, 100)
+
+	// 達到最大潛力時間
+	if potential.GrowthPotential == "high" {
+		potential.TimeToMaxPotential = 60
+	} else if potential.GrowthPotential == "medium" {
+		potential.TimeToMaxPotential = 120
+	} else {
+		potential.TimeToMaxPotential = 180
+	}
+
+	return potential
+}
+
+// generateValueRecommendations 生成價值相關建議
+func (pc *PlayerController) generateValueRecommendations(response *PlayerValueScoreResponse) []string {
+	var recommendations []string
+
+	// 基於總體評分的建議
+	if response.OverallScore >= 80 {
+		recommendations = append(recommendations, "維持VIP服務水準，提供專屬優惠")
+	} else if response.OverallScore >= 60 {
+		recommendations = append(recommendations, "提升服務品質，爭取成為VIP用戶")
+	} else {
+		recommendations = append(recommendations, "重點培養，提供個人化服務")
+	}
+
+	// 基於活躍度的建議
+	if response.ActivityScore.Score < 50 {
+		recommendations = append(recommendations, "設計吸引活動提升用戶參與度")
+	}
+
+	// 基於忠誠度的建議
+	if response.LoyaltyScore.ChurnProbability > 0.5 {
+		recommendations = append(recommendations, "加強客戶關係維護，降低流失風險")
+	}
+
+	// 基於消費力的建議
+	if response.SpendingScore.Score < 40 {
+		recommendations = append(recommendations, "推出促消費活動，提升消費意願")
+	}
+
+	// 基於風險的建議
+	if response.RiskScore.Score > 60 {
+		recommendations = append(recommendations, "加強風險監控，確保合規經營")
+	}
+
+	// 基於盈利性的建議
+	if response.ProfitabilityScore.Score < 30 {
+		recommendations = append(recommendations, "優化產品結構，提升用戶貢獻價值")
+	}
+
+	return recommendations
+}
+
+// savePlayerValueScoreAnalysis 儲存價值評分分析結果
+func (pc *PlayerController) savePlayerValueScoreAnalysis(db *sql.DB, playerID int64, analysis *PlayerValueScoreResponse) error {
+	// 將分析結果序列化為JSON
+	analysisJSON, err := json.Marshal(analysis)
+	if err != nil {
+		return fmt.Errorf("序列化分析結果失敗: %v", err)
+	}
+
+	// 儲存到資料庫
+	_, err = db.Exec(`
+		INSERT INTO player_value_score_analysis 
+		(player_id, time_range, analysis_data, created_at, updated_at)
+		VALUES (?, ?, ?, NOW(), NOW())
+	`, playerID, analysis.TimeRange, string(analysisJSON))
+
+	if err != nil {
+		return fmt.Errorf("儲存分析結果到資料庫失敗: %v", err)
+	}
+
+	return nil
 }
 
 // ==============================================
@@ -1460,7 +2608,193 @@ func (pc *PlayerController) generateSpendingSummary(analysis interface{}) string
 
 // GetPlayers 獲取玩家列表
 func (pc *PlayerController) GetPlayers(c *gin.Context) {
-	ErrorResponse(c, http.StatusNotImplemented, "GetPlayers endpoint not implemented yet", "NOT_IMPLEMENTED")
+	// 解析查詢參數
+	var req PlayerListRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		ErrorResponse(c, http.StatusBadRequest, "參數驗證失敗: "+err.Error(), "VALIDATION_FAILED")
+		return
+	}
+
+	// 設定預設值
+	if req.Page == 0 {
+		req.Page = 1
+	}
+	if req.Limit == 0 {
+		req.Limit = 20
+	}
+	if req.Sort == "" {
+		req.Sort = "id"
+	}
+	if req.Order == "" {
+		req.Order = "desc"
+	}
+
+	// 獲取資料庫連接
+	db := config.GetDB()
+	if db == nil {
+		ErrorResponse(c, http.StatusInternalServerError, "資料庫連接失敗", "DATABASE_ERROR")
+		return
+	}
+
+	// 建構基本 SQL 查詢
+	baseQuery := `SELECT p.id, p.username, p.email, p.real_name, 
+		p.phone, p.birth_date, p.country, p.timezone,
+		p.verification_level, p.status, p.risk_level, 
+		p.created_at, p.updated_at, p.last_login_at,
+		COALESCE(w.balance, 0) as balance
+		FROM players p 
+		LEFT JOIN player_wallets w ON p.id = w.player_id`
+
+	countQuery := `SELECT COUNT(*) FROM players p`
+
+	var conditions []string
+	var args []interface{}
+	argIndex := 0
+
+	// 添加搜尋條件
+	if req.Search != "" {
+		conditions = append(conditions, "(p.username LIKE ? OR p.email LIKE ? OR p.real_name LIKE ?)")
+		searchPattern := "%" + req.Search + "%"
+		args = append(args, searchPattern, searchPattern, searchPattern)
+		argIndex += 3
+	}
+
+	// 添加狀態篩選
+	if req.Status != "" {
+		conditions = append(conditions, "p.status = ?")
+		args = append(args, req.Status)
+		argIndex++
+	}
+
+	// 添加驗證等級篩選
+	if req.VerificationLevel != "" {
+		conditions = append(conditions, "p.verification_level = ?")
+		args = append(args, req.VerificationLevel)
+		argIndex++
+	}
+
+	// 添加風險等級篩選
+	if req.RiskLevel != "" {
+		conditions = append(conditions, "p.risk_level = ?")
+		args = append(args, req.RiskLevel)
+		argIndex++
+	}
+
+	// 添加日期範圍篩選
+	if req.StartDate != "" {
+		conditions = append(conditions, "DATE(p.created_at) >= ?")
+		args = append(args, req.StartDate)
+		argIndex++
+	}
+	if req.EndDate != "" {
+		conditions = append(conditions, "DATE(p.created_at) <= ?")
+		args = append(args, req.EndDate)
+		argIndex++
+	}
+
+	// 組合 WHERE 條件
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	// 執行計數查詢
+	countSql := countQuery + whereClause
+	var total int64
+	err := db.QueryRow(countSql, args...).Scan(&total)
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, "查詢計數失敗: "+err.Error(), "DATABASE_ERROR")
+		return
+	}
+
+	// 添加排序
+	orderClause := fmt.Sprintf(" ORDER BY p.%s %s", req.Sort, strings.ToUpper(req.Order))
+
+	// 添加分頁
+	offset := (req.Page - 1) * req.Limit
+	limitClause := fmt.Sprintf(" LIMIT %d OFFSET %d", req.Limit, offset)
+
+	// 完整查詢
+	fullQuery := baseQuery + whereClause + orderClause + limitClause
+
+	rows, err := db.Query(fullQuery, args...)
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, "查詢玩家列表失敗: "+err.Error(), "DATABASE_ERROR")
+		return
+	}
+	defer rows.Close()
+
+	var players []PlayerWithBalance
+	for rows.Next() {
+		var player PlayerWithBalance
+		var birthDate, lastLoginAt sql.NullTime
+
+		err := rows.Scan(
+			&player.ID,
+			&player.Username,
+			&player.Email,
+			&player.RealName,
+			&player.Phone,
+			&birthDate,
+			&player.Country,
+			&player.Timezone,
+			&player.VerificationLevel,
+			&player.Status,
+			&player.RiskLevel,
+			&player.CreatedAt,
+			&player.UpdatedAt,
+			&lastLoginAt,
+			&player.Balance,
+		)
+		if err != nil {
+			ErrorResponse(c, http.StatusInternalServerError, "掃描資料失敗: "+err.Error(), "DATABASE_ERROR")
+			return
+		}
+
+		// 處理可能為空的時間字段
+		if birthDate.Valid {
+			player.BirthDate = &birthDate.Time
+		}
+		if lastLoginAt.Valid {
+			player.LastLoginAt = &lastLoginAt.Time
+		}
+
+		players = append(players, player)
+	}
+
+	if err = rows.Err(); err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, "讀取資料失敗: "+err.Error(), "DATABASE_ERROR")
+		return
+	}
+
+	// 計算分頁資訊
+	totalPages := int((total + int64(req.Limit) - 1) / int64(req.Limit))
+
+	response := map[string]interface{}{
+		"players": players,
+		"pagination": map[string]interface{}{
+			"page":         req.Page,
+			"limit":        req.Limit,
+			"total":        total,
+			"total_pages":  totalPages,
+			"has_next":     req.Page < totalPages,
+			"has_previous": req.Page > 1,
+		},
+		"filters": map[string]interface{}{
+			"search":             req.Search,
+			"status":             req.Status,
+			"verification_level": req.VerificationLevel,
+			"risk_level":         req.RiskLevel,
+			"start_date":         req.StartDate,
+			"end_date":           req.EndDate,
+		},
+		"sort": map[string]interface{}{
+			"field": req.Sort,
+			"order": req.Order,
+		},
+	}
+
+	SuccessResponse(c, response, "玩家列表獲取成功")
 }
 
 // GetPlayer 獲取單個玩家詳細資訊
