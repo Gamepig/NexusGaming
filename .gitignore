@@ -24,4 +24,20 @@ node_modules/
 # OS specific
 .DS_Store
 
-# Task files 
+# Task files
+# Go build outputs
+backend/bin/
+backend/*.exe
+backend/nexus-gaming-backend
+*.exe
+
+# Temporary documentation
+claude.md
+
+# Database backup files
+*.sql.bak
+*.sql.tmp
+
+# Docker volumes
+postgres-data/
+mysql-data/ 

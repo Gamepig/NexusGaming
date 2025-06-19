@@ -57,14 +57,22 @@ export interface PlayerSearchParams extends PaginationParams {
 
 // 分頁回應介面
 export interface PaginatedResponse<T> {
-  data: T[];
+  players: T[];
   pagination: {
-    currentPage: number;
-    totalPages: number;
-    totalCount: number;
-    itemsPerPage: number;
-    hasNext: boolean;
-    hasPrev: boolean;
+    page: number;
+    limit: number;
+    total: number;
+    total_pages: number;
+    has_next: boolean;
+    has_previous: boolean;
+  };
+  filters: {
+    search: string;
+    status: string;
+    start_date: string;
+    end_date: string;
+    risk_level: string;
+    verification_level: string;
   };
 }
 
@@ -119,14 +127,14 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'GET' });
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async post<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async put<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
@@ -163,7 +171,7 @@ export const playerApi = {
   },
 
   // 獲取玩家遊戲歷史
-  async getPlayerGameHistory(id: string, params: PaginationParams = {}): Promise<ApiResponse<any>> {
+  async getPlayerGameHistory(id: string, params: PaginationParams = {}): Promise<ApiResponse<unknown>> {
     const queryParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
@@ -176,53 +184,53 @@ export const playerApi = {
   },
 
   // 獲取玩家餘額
-  async getPlayerBalance(id: string): Promise<ApiResponse<any>> {
+  async getPlayerBalance(id: string): Promise<ApiResponse<unknown>> {
     return apiClient.get(`/players/${id}/balance`);
   },
 
   // 更新玩家狀態
-  async updatePlayerStatus(id: string, status: string): Promise<ApiResponse<any>> {
+  async updatePlayerStatus(id: string, status: string): Promise<ApiResponse<unknown>> {
     return apiClient.put(`/players/${id}/status`, { status });
   },
 
   // 設定玩家限制
-  async setPlayerLimits(id: string, limits: any): Promise<ApiResponse<any>> {
+  async setPlayerLimits(id: string, limits: unknown): Promise<ApiResponse<unknown>> {
     return apiClient.put(`/players/${id}/limits`, limits);
   },
 
   // 玩家點數調整
-  async adjustPlayerBalance(id: string, adjustment: { amount: number; type: 'add' | 'subtract'; reason: string }): Promise<ApiResponse<any>> {
+  async adjustPlayerBalance(id: string, adjustment: { amount: number; type: 'add' | 'subtract'; reason: string }): Promise<ApiResponse<unknown>> {
     return apiClient.post(`/players/${id}/balance/adjust`, adjustment);
   },
 
   // 獲取玩家行為分析
-  async getPlayerBehaviorAnalysis(id: string): Promise<ApiResponse<any>> {
+  async getPlayerBehaviorAnalysis(id: string): Promise<ApiResponse<unknown>> {
     return apiClient.post(`/players/${id}/behavior-analysis`);
   },
 
   // 獲取玩家遊戲偏好統計
-  async getPlayerGamePreference(id: string): Promise<ApiResponse<any>> {
+  async getPlayerGamePreference(id: string): Promise<ApiResponse<unknown>> {
     return apiClient.post(`/players/${id}/game-preference`);
   },
 
   // 獲取玩家消費習慣分析
-  async getPlayerSpendingHabits(id: string): Promise<ApiResponse<any>> {
+  async getPlayerSpendingHabits(id: string): Promise<ApiResponse<unknown>> {
     return apiClient.post(`/players/${id}/spending-habits`);
   },
 
   // 計算玩家價值評分
-  async calculatePlayerValueScore(id: string, config?: any): Promise<ApiResponse<any>> {
+  async calculatePlayerValueScore(id: string, config?: unknown): Promise<ApiResponse<unknown>> {
     return apiClient.post(`/players/${id}/value-score`, config);
   },
 };
 
 // 身份驗證相關 API
 export const authApi = {
-  async login(credentials: { username: string; password: string }): Promise<ApiResponse<{ token: string; user: any }>> {
+  async login(credentials: { username: string; password: string }): Promise<ApiResponse<{ token: string; user: unknown }>> {
     return apiClient.post('/auth/login', credentials);
   },
 
-  async logout(): Promise<ApiResponse<any>> {
+  async logout(): Promise<ApiResponse<unknown>> {
     return apiClient.post('/auth/logout');
   },
 

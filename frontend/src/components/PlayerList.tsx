@@ -8,7 +8,7 @@ interface PlayerListProps {
   onPlayerSelect?: (player: Player) => void;
 }
 
-const PlayerList: React.FC<PlayerListProps> = ({ onPlayerSelect }) => {
+const PlayerList: React.FC<PlayerListProps> = () => {
   const router = useRouter();
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(false);
@@ -32,37 +32,37 @@ const PlayerList: React.FC<PlayerListProps> = ({ onPlayerSelect }) => {
     maxBalance: ''
   });
 
-  // 載入玩家列表
-  const loadPlayers = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const params: PlayerSearchParams = {
-        ...searchParams,
-        search: searchForm.search || undefined,
-        status: searchForm.status || undefined,
-        startDate: searchForm.startDate || undefined,
-        endDate: searchForm.endDate || undefined,
-        minBalance: searchForm.minBalance ? parseFloat(searchForm.minBalance) : undefined,
-        maxBalance: searchForm.maxBalance ? parseFloat(searchForm.maxBalance) : undefined,
-      };
-
-      const response = await playerApi.getPlayers(params);
-      setPlayers(response.data.data);
-      setTotalPages(response.data.pagination?.totalPages || 1);
-      setTotalCount(response.data.pagination?.totalCount || 0);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '載入玩家列表失敗');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // 初始載入和參數變更時重新載入
   useEffect(() => {
+    const loadPlayers = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const params: PlayerSearchParams = {
+          ...searchParams,
+          search: searchForm.search || undefined,
+          status: searchForm.status || undefined,
+          startDate: searchForm.startDate || undefined,
+          endDate: searchForm.endDate || undefined,
+          minBalance: searchForm.minBalance ? parseFloat(searchForm.minBalance) : undefined,
+          maxBalance: searchForm.maxBalance ? parseFloat(searchForm.maxBalance) : undefined,
+        };
+
+        const response = await playerApi.getPlayers(params);
+        console.log('API Response:', response); // 添加調試
+        setPlayers(response.data.players || []); // 修正資料路徑
+        setTotalPages(response.data.pagination?.total_pages || 1); // 修正屬性名稱
+        setTotalCount(response.data.pagination?.total || 0); // 修正屬性名稱
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '載入玩家列表失敗');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadPlayers();
-  }, [searchParams]);
+  }, [searchParams, searchForm]);
 
   // 處理搜尋
   const handleSearch = (e: React.FormEvent) => {

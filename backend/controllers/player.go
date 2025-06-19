@@ -1777,8 +1777,8 @@ func (pc *PlayerController) calculateActivityScore(db *sql.DB, playerID int64, s
 	// 計算遊戲參與分數
 	gameQuery := `
 		SELECT COUNT(*) as total_games,
-		       COALESCE(AVG(TIMESTAMPDIFF(MINUTE, created_at, updated_at)), 0) as avg_session
-		FROM game_sessions 
+		       COALESCE(AVG(session_duration/60), 0) as avg_session
+		FROM player_game_sessions 
 		WHERE player_id = ? AND created_at BETWEEN ? AND ?`
 
 	var totalGames int
@@ -1852,7 +1852,7 @@ func (pc *PlayerController) calculateLoyaltyScore(db *sql.DB, playerID int64, st
 	gameTypesQuery := `
 		SELECT COUNT(DISTINCT game_type) as unique_games,
 		       COUNT(*) as total_games
-		FROM game_sessions 
+		FROM player_game_sessions 
 		WHERE player_id = ? AND created_at BETWEEN ? AND ?`
 
 	var uniqueGames, totalGames int
