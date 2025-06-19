@@ -73,14 +73,7 @@ const PlayerStatusManagement: React.FC<PlayerStatusManagementProps> = ({
     return new Date(dateString).toLocaleString('zh-TW');
   };
 
-  // 格式化金額
-  const formatAmount = (amount: number) => {
-    return new Intl.NumberFormat('zh-TW', {
-      style: 'currency',
-      currency: 'TWD',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
+
 
   // 獲取狀態樣式
   const getStatusStyle = (status: string) => {

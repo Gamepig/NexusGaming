@@ -8,11 +8,36 @@ interface PlayerDetailProps {
   onPlayerUpdate?: (player: Player) => void;
 }
 
+interface BehaviorAnalysis {
+  gaming_frequency: string;
+  betting_pattern: string;
+  time_preference: string;
+  session_behavior: string;
+}
+
+interface GamePreference {
+  preferred_games: string[];
+  game_statistics: Record<string, number>;
+}
+
+interface SpendingHabits {
+  average_bet: number;
+  deposit_frequency: string;
+  withdrawal_pattern: string;
+  spending_trend: string;
+}
+
+interface ValueScore {
+  score: number;
+  factors: Record<string, number>;
+  rating: string;
+}
+
 interface AnalysisData {
-  behaviorAnalysis?: any;
-  gamePreference?: any;
-  spendingHabits?: any;
-  valueScore?: any;
+  behaviorAnalysis?: BehaviorAnalysis;
+  gamePreference?: GamePreference;
+  spendingHabits?: SpendingHabits;
+  valueScore?: ValueScore;
 }
 
 const PlayerDetail: React.FC<PlayerDetailProps> = ({ playerId, onPlayerUpdate }) => {
@@ -54,10 +79,10 @@ const PlayerDetail: React.FC<PlayerDetailProps> = ({ playerId, onPlayerUpdate })
       ]);
 
       setAnalysisData({
-        behaviorAnalysis: behaviorRes.status === 'fulfilled' ? behaviorRes.value.data : null,
-        gamePreference: preferenceRes.status === 'fulfilled' ? preferenceRes.value.data : null,
-        spendingHabits: spendingRes.status === 'fulfilled' ? spendingRes.value.data : null,
-        valueScore: valueRes.status === 'fulfilled' ? valueRes.value.data : null,
+        behaviorAnalysis: behaviorRes.status === 'fulfilled' ? behaviorRes.value.data as BehaviorAnalysis : undefined,
+        gamePreference: preferenceRes.status === 'fulfilled' ? preferenceRes.value.data as GamePreference : undefined,
+        spendingHabits: spendingRes.status === 'fulfilled' ? spendingRes.value.data as SpendingHabits : undefined,
+        valueScore: valueRes.status === 'fulfilled' ? valueRes.value.data as ValueScore : undefined,
       });
     } catch (err) {
       console.error('載入分析資料失敗:', err);
