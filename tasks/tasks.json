@@ -61,5 +61,57 @@
         "testStrategy": "合併 PR 到 main 分支後，確認 GitHub Actions 成功觸發部署，並驗證應用程式是否已更新到 Kubernetes 環境中。"
       }
     ]
+  },
+  {
+    "id": "3",
+    "title": "玩家管理前端介面開發",
+    "description": "完成玩家管理系統的前端組件開發，包括列表、詳細資料、點數管理和狀態管理功能。",
+    "status": "done",
+    "dependencies": [],
+    "priority": "high",
+    "details": "已完成 PlayerList、PlayerDetail、PlayerPointsManagement 和 PlayerStatusManagement 組件開發。",
+    "testStrategy": "確認所有組件正常顯示和運作，API 整合正常。",
+    "subtasks": [
+      {
+        "id": "3.1",
+        "title": "建立玩家列表展示組件",
+        "description": "開發 PlayerList 組件，支援搜尋、篩選、分頁和排序功能。",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "包含完整的搜尋表單、狀態篩選、日期範圍、餘額範圍篩選功能。",
+        "testStrategy": "測試搜尋、篩選、分頁和排序功能是否正常運作。"
+      },
+      {
+        "id": "3.2",
+        "title": "建立玩家詳細資料展示組件",
+        "description": "開發 PlayerDetail 組件，展示玩家完整資訊和分析數據。",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "包含分頁顯示基本資料、帳戶資訊、財務統計和行為分析功能。",
+        "testStrategy": "測試玩家詳細資訊顯示和分析數據載入功能。"
+      },
+      {
+        "id": "3.3",
+        "title": "建立玩家點數管理組件",
+        "description": "開發 PlayerPointsManagement 組件，提供點數調整和歷史記錄功能。",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "包含點數增加/扣除、調整原因選擇、預覽功能和歷史記錄查看。",
+        "testStrategy": "測試點數調整操作和歷史記錄顯示功能。"
+      },
+      {
+        "id": "3.4",
+        "title": "建立玩家狀態管理組件",
+        "description": "開發 PlayerStatusManagement 組件，提供狀態變更和限制設定功能。",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "包含狀態變更、限制設定、變更歷史和操作記錄功能。",
+        "testStrategy": "測試玩家狀態變更和限制設定功能。"
+      }
+    ]
   }
 ] 
